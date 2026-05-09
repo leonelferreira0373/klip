@@ -1,8 +1,10 @@
+import base64
+import uuid
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QUndoStack
+from PySide6.QtCore import QBuffer, QByteArray, QIODevice, Qt
+from PySide6.QtGui import QGuiApplication, QImage, QKeySequence, QShortcut, QUndoStack
 from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
@@ -16,12 +18,19 @@ from .canvas.scene import KlipScene
 from .canvas.view import KlipView
 from .document.document import Document
 from .document.io import load_document, save_document
-from .document.schema import DocumentModel, PageModel
+from .document.schema import (
+    AssetModel,
+    DocumentModel,
+    ImageItemModel,
+    PageModel,
+    Transform,
+)
 from .export.exporter import export_page
 from .panels.layers_panel import LayersPanel
 from .panels.pages_panel import PagesPanel
 from .toolbar.toolbar import KlipToolbar, Tool
 from .undo.commands import (
+    AddItemCommand,
     AddPageCommand,
     MoveItemZCommand,
     RemoveItemCommand,
@@ -29,11 +38,25 @@ from .undo.commands import (
 )
 
 
+_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
+_MIME_BY_EXT = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+    ".gif": "image/gif",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+}
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Klip")
         self.resize(1280, 820)
+        self.setAcceptDrops(True)
 
         self._document = Document(name="Untitled")
         self._current_path: Optional[Path] = None
@@ -41,6 +64,7 @@ class MainWindow(QMainWindow):
         self.scene = KlipScene(self)
         self.scene.item_added.connect(self._on_item_added)
         self.view = KlipView(self.scene, self)
+        self.view.setAcceptDrops(False)
         self.setCentralWidget(self.view)
 
         self._handles = HandleOverlay(self.scene)
@@ -79,6 +103,10 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Ready")
 
         self._build_menus()
+
+        paste_sc = QShortcut(QKeySequence.Paste, self)
+        paste_sc.activated.connect(self._paste_clipboard)
+
         self._new_document()
 
     # ---------------- public API ----------------
@@ -110,6 +138,13 @@ class MainWindow(QMainWindow):
         redo_act = self.undo_stack.createRedoAction(self, "&Redo")
         redo_act.setShortcut(QKeySequence.Redo)
         m_edit.addAction(redo_act)
+        m_edit.addSeparator()
+        m_edit.addAction("&Paste image", self._paste_clipboard, QKeySequence.Paste)
+
+        m_insert = self.menuBar().addMenu("&Insert")
+        m_insert.addAction(
+            "&Image...", self._insert_image_dialog, QKeySequence("Ctrl+I")
+        )
 
         m_view = self.menuBar().addMenu("&View")
         m_view.addAction(self.pages_dock.toggleViewAction())
@@ -194,6 +229,148 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             f"Exported {len(self._document.pages)} pages to {folder}", 5000
         )
+
+    # ---------------- image import ----------------
+    def _insert_image_dialog(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Insert image",
+            "",
+            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff)",
+        )
+        if not path:
+            return
+        self.insert_image_from_path(Path(path))
+
+    def insert_image_from_path(self, path: Path) -> Optional[ImageItemModel]:
+        try:
+            data = Path(path).read_bytes()
+        except OSError as e:
+            QMessageBox.warning(self, "Insert image failed", str(e))
+            return None
+        ext = Path(path).suffix.lower()
+        mime = _MIME_BY_EXT.get(ext, "image/png")
+        return self.insert_image_bytes(data, mime)
+
+    def insert_image_from_qimage(self, image: QImage) -> Optional[ImageItemModel]:
+        if image.isNull():
+            return None
+        buf = QBuffer()
+        buf.open(QIODevice.WriteOnly)
+        image.save(buf, "PNG")
+        return self.insert_image_bytes(bytes(buf.data()), "image/png")
+
+    def insert_image_bytes(
+        self, data: bytes, mime: str
+    ) -> Optional[ImageItemModel]:
+        if self._document.current_page_index < 0:
+            return None
+
+        img = QImage()
+        if not img.loadFromData(QByteArray(data)):
+            QMessageBox.warning(
+                self, "Insert image failed", "Could not decode image data."
+            )
+            return None
+        iw, ih = img.width(), img.height()
+        if iw <= 0 or ih <= 0:
+            return None
+
+        page = self._document.current_page()
+        pw = float(page.size["w"])
+        ph = float(page.size["h"])
+        max_w, max_h = pw * 0.8, ph * 0.8
+        scale = min(max_w / iw, max_h / ih, 1.0)
+        w, h = iw * scale, ih * scale
+        x, y = (pw - w) / 2, (ph - h) / 2
+
+        asset = AssetModel(
+            id=f"asset_{uuid.uuid4().hex[:12]}",
+            mime=mime,
+            data=base64.b64encode(data).decode("ascii"),
+        )
+        self._document.assets.append(asset)
+
+        next_z = 1 + max((it.z for it in page.items), default=0)
+        item = ImageItemModel(
+            id=f"image_{uuid.uuid4().hex[:12]}",
+            transform=Transform(x=x, y=y, w=w, h=h),
+            z=next_z,
+            asset_ref=asset.id,
+        )
+
+        cmd = AddItemCommand(
+            self._document, self._document.current_page_index, item
+        )
+        self.undo_stack.push(cmd)
+        self._refresh_scene()
+        self._refresh_layers()
+        self.statusBar().showMessage(f"Inserted image ({iw}x{ih})", 3000)
+        return item
+
+    def _paste_clipboard(self):
+        cb = QGuiApplication.clipboard()
+        mime = cb.mimeData()
+        if mime is None:
+            return
+        if mime.hasImage():
+            self.insert_image_from_qimage(cb.image())
+            return
+        if mime.hasUrls():
+            for url in mime.urls():
+                if url.isLocalFile():
+                    p = Path(url.toLocalFile())
+                    if p.suffix.lower() in _IMAGE_EXTS:
+                        self.insert_image_from_path(p)
+                        return
+
+    # ---------------- drag and drop ----------------
+    def dragEnterEvent(self, event):
+        if self._drop_has_image(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if self._drop_has_image(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        mime = event.mimeData()
+        if mime.hasImage():
+            img = QImage(mime.imageData())
+            if not img.isNull():
+                self.insert_image_from_qimage(img)
+                event.acceptProposedAction()
+                return
+        if mime.hasUrls():
+            inserted = False
+            for url in mime.urls():
+                if not url.isLocalFile():
+                    continue
+                p = Path(url.toLocalFile())
+                if p.suffix.lower() in _IMAGE_EXTS:
+                    self.insert_image_from_path(p)
+                    inserted = True
+            if inserted:
+                event.acceptProposedAction()
+                return
+        super().dropEvent(event)
+
+    @staticmethod
+    def _drop_has_image(mime) -> bool:
+        if mime is None:
+            return False
+        if mime.hasImage():
+            return True
+        if mime.hasUrls():
+            for url in mime.urls():
+                if url.isLocalFile():
+                    if Path(url.toLocalFile()).suffix.lower() in _IMAGE_EXTS:
+                        return True
+        return False
 
     # ---------------- page ops ----------------
     def _add_page(self):
