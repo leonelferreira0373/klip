@@ -1,17 +1,52 @@
 # Klip — Project Status & Resumption Guide
 
-**Last updated:** 2026-05-07 (end of day)
-**Where we left off:** IDM downloading wheels. Resume here tomorrow.
+**Last updated:** 2026-05-09 (end of day)
+**Where we left off:** PC .exe shipping with image import. Toolbar UX bug to fix tomorrow.
 
 ---
 
-## 🟢 Quick resume tomorrow
+## 🟢 Quick resume 2026-05-10
 
 When you come back, just say:
 
-> "Resume Klip — downloads done"
+> "Resume Klip — toolbar bug"
 
-…and I will:
+Open bug:
+- User reports toolbar buttons (Select / Rect / Ellipse / Polygon / Line / Text)
+  "don't seem to actually do anything." Either:
+  (a) tool-change signal not reaching `KlipScene.set_active_tool` in the
+      frozen build, or
+  (b) UX confusion — current flow is *click tool → click canvas to drop*; user
+      probably expected the button itself to add a shape, or to show pressed-state.
+- First check: open the .exe, click Rect, then click the canvas. If a rect
+  appears, it's UX (b) → fix with checkable toolbar buttons + "click on canvas
+  to add" status hint. If nothing, it's (a) → check signal wiring in app.py
+  `_on_tool_changed` and confirm `KlipScene.handle_canvas_click` returns a
+  model when `_active_tool` is set.
+- Also worth checking: dock-panel buttons (add-page, delete-layer) and any
+  other clickable that the user might have meant.
+
+## ⏭️ What was just shipped today (2026-05-09)
+1. Resumed mid-Phase-3 (memory was stale — said Phase 0+1 blocked, actually
+   already through Phase 2).
+2. Fixed venv: `pyvenv.cfg` `include-system-site-packages = true` so AI deps
+   from system Python are visible to the venv (no re-downloads needed).
+3. Committed + tagged `phase-3` (AI bg remover, color picker/extractor, fonts).
+4. Wrote `pc/build/klip.spec` + `make_icon.py` + `version_info.txt`.
+5. Built `pc/dist/Klip/Klip.exe` (~1.1 GB, BiRefNet bundled, windowed).
+   Tag: `phase-7-pc`.
+6. Added image import (Ctrl+I menu, drag-and-drop, Ctrl+V paste). +7 tests,
+   62 total passing. Rebuilt the .exe.
+
+## ⏭️ Roadmap reminder
+- Phase 4 — ADB sync (not started)
+- Phase 5/6 — Android Compose .apk (not started — needs Gradle internet sync)
+- Phase 7 (Android) — signed .apk
+
+---
+
+## 📜 Original resume sequence (kept for reference, no longer relevant)
+
 1. Read this file + `design.md` + `plan.md` to restore full context.
 2. Run offline pip install from `C:\Users\leone\klip\wheels\`.
 3. Run pytest to verify everything passes.
