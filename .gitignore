@@ -30,6 +30,7 @@ desktop.ini
 *.mcv.bak
 exports/
 wheels/
+pip-*.log
 
 # PyInstaller
 *.spec.bak
