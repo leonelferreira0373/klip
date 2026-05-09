@@ -1,7 +1,7 @@
 import uuid
 from typing import Mapping, Optional
 
-from PySide6.QtCore import QRectF
+from PySide6.QtCore import QRectF, Signal
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import QGraphicsScene
 
@@ -16,6 +16,8 @@ from ..document.schema import (
 
 
 class KlipScene(QGraphicsScene):
+    item_added = Signal(str)  # item id
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._page: Optional[PageModel] = None
@@ -67,6 +69,31 @@ class KlipScene(QGraphicsScene):
                 stroke="#333333",
                 stroke_width=1,
             )
+        elif self._active_tool == "polygon":
+            new_model = ShapeItemModel(
+                id=f"item_{uuid.uuid4().hex[:8]}",
+                transform=Transform(
+                    x=scene_pos.x() - 50, y=scene_pos.y() - 50, w=100, h=100
+                ),
+                z=len(self.items()),
+                shape="polygon",
+                fill="#cccccc",
+                stroke="#333333",
+                stroke_width=1,
+                sides=6,
+            )
+        elif self._active_tool == "line":
+            new_model = ShapeItemModel(
+                id=f"item_{uuid.uuid4().hex[:8]}",
+                transform=Transform(
+                    x=scene_pos.x() - 50, y=scene_pos.y() - 50, w=100, h=100
+                ),
+                z=len(self.items()),
+                shape="line",
+                fill=None,
+                stroke="#333333",
+                stroke_width=2,
+            )
         elif self._active_tool == "text":
             new_model = TextItemModel(
                 id=f"item_{uuid.uuid4().hex[:8]}",
@@ -85,4 +112,5 @@ class KlipScene(QGraphicsScene):
             self._page.items.append(new_model)
         qitem = ItemAdapter.create_qitem(new_model)
         self.addItem(qitem)
+        self.item_added.emit(new_model.id)
         return new_model
