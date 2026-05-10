@@ -57,7 +57,7 @@ class KlipToolbar(QToolBar):
             act = QAction(_ICONS[t], self)
             act.setToolTip(_TIPS[t])
             act.setCheckable(True)
-            act.triggered.connect(lambda checked, tool=t: self.set_active_tool(tool))
+            act.triggered.connect(lambda *_args, tool=t: self.set_active_tool(tool))
             self.addAction(act)
             self._actions[t] = act
         self._actions[Tool.SELECT].setChecked(True)

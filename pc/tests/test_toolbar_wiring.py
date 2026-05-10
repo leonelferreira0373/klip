@@ -21,6 +21,17 @@ def test_select_tool_initializes_at_startup(qtbot):
     assert window.scene._active_tool == "select"
 
 
+def test_clicking_toolbar_action_via_trigger_fires_lambda(qtbot):
+    """Regression: PySide6 6.6 emits QAction.triggered without `checked`
+    in some paths. The toolbar lambda must absorb varargs."""
+    window = MainWindow()
+    qtbot.addWidget(window)
+    rect_action = window.toolbar._actions[Tool.RECT]
+    rect_action.trigger()
+    assert window.toolbar.active_tool == Tool.RECT
+    assert window.scene._active_tool == "rect"
+
+
 def test_shape_tool_shows_persistent_hint(qtbot):
     window = MainWindow()
     qtbot.addWidget(window)
