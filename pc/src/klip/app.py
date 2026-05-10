@@ -13,9 +13,12 @@ from PySide6.QtWidgets import (
     QStatusBar,
 )
 
+from .ai.bg_remover import remove_background
 from .canvas.handles import HandleOverlay
 from .canvas.scene import KlipScene
 from .canvas.view import KlipView
+from .color.extractor import extract_palette
+from .color.picker import hex_at
 from .document.document import Document
 from .document.io import load_document, save_document
 from .document.schema import (
@@ -26,6 +29,7 @@ from .document.schema import (
     Transform,
 )
 from .export.exporter import export_page
+from .fonts.installer import install_user_font
 from .panels.layers_panel import LayersPanel
 from .panels.pages_panel import PagesPanel
 from .toolbar.toolbar import KlipToolbar, Tool
@@ -63,6 +67,7 @@ class MainWindow(QMainWindow):
 
         self.scene = KlipScene(self)
         self.scene.item_added.connect(self._on_item_added)
+        self.scene.color_picked.connect(self._on_color_picked)
         self.view = KlipView(self.scene, self)
         self.view.setAcceptDrops(False)
         self.setCentralWidget(self.view)
@@ -74,6 +79,7 @@ class MainWindow(QMainWindow):
         self.toolbar = KlipToolbar(self)
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
         self.toolbar.tool_changed.connect(self._on_tool_changed)
+        self.scene.set_active_tool("select")
 
         self.undo_stack = QUndoStack(self)
 
@@ -106,6 +112,10 @@ class MainWindow(QMainWindow):
 
         paste_sc = QShortcut(QKeySequence.Paste, self)
         paste_sc.activated.connect(self._paste_clipboard)
+
+        esc_sc = QShortcut(QKeySequence(Qt.Key_Escape), self)
+        esc_sc.setContext(Qt.ApplicationShortcut)
+        esc_sc.activated.connect(lambda: self.toolbar.set_active_tool(Tool.SELECT))
 
         self._new_document()
 
@@ -324,6 +334,126 @@ class MainWindow(QMainWindow):
                         self.insert_image_from_path(p)
                         return
 
+    # ---------------- font / bg-remove / palette ----------------
+    def _install_font_dialog(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Install font", "", "Fonts (*.ttf *.otf)"
+        )
+        if not path:
+            return
+        try:
+            dst = install_user_font(Path(path))
+        except Exception as e:
+            QMessageBox.warning(self, "Install font failed", str(e))
+            return
+        self.statusBar().showMessage(f"Installed font: {dst.name}", 4000)
+
+    def _selected_image_item(self) -> Optional[ImageItemModel]:
+        sel = self.scene.selectedItems()
+        if not sel:
+            return None
+        item_id = sel[0].data(0)
+        if not item_id or self._document.current_page_index < 0:
+            return None
+        page = self._document.current_page()
+        for it in page.items:
+            if it.id == item_id and isinstance(it, ImageItemModel):
+                return it
+        return None
+
+    def _run_bg_remove_on_selection(self):
+        item = self._selected_image_item()
+        if item is None:
+            QMessageBox.information(
+                self,
+                "No image selected",
+                "Select an image on the canvas first, then click BG Remove.",
+            )
+            return
+        asset = next(
+            (a for a in self._document.assets if a.id == item.asset_ref), None
+        )
+        if asset is None:
+            return
+        self.statusBar().showMessage("Running background remover…")
+        QGuiApplication.processEvents()
+        try:
+            from PIL import Image
+            import io as _io
+            raw = base64.b64decode(asset.data)
+            pil = Image.open(_io.BytesIO(raw))
+            cutout = remove_background(pil, "birefnet-general")
+            buf = _io.BytesIO()
+            cutout.save(buf, format="PNG")
+            asset.data = base64.b64encode(buf.getvalue()).decode("ascii")
+            asset.mime = "image/png"
+        except Exception as e:
+            QMessageBox.warning(self, "BG Remove failed", str(e))
+            self.statusBar().clearMessage()
+            return
+        self._refresh_scene()
+        self.statusBar().showMessage("Background removed.", 3000)
+
+    def _run_palette_extract_on_selection(self):
+        item = self._selected_image_item()
+        if item is None:
+            QMessageBox.information(
+                self,
+                "No image selected",
+                "Select an image on the canvas first, then click Palette.",
+            )
+            return
+        asset = next(
+            (a for a in self._document.assets if a.id == item.asset_ref), None
+        )
+        if asset is None:
+            return
+        try:
+            from PIL import Image
+            import io as _io
+            raw = base64.b64decode(asset.data)
+            pil = Image.open(_io.BytesIO(raw))
+            colors = extract_palette(pil, k=5)
+        except Exception as e:
+            QMessageBox.warning(self, "Palette failed", str(e))
+            return
+        self._show_palette_dialog(colors)
+
+    def _show_palette_dialog(self, colors: list):
+        from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QVBoxLayout
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Color palette")
+        v = QVBoxLayout(dlg)
+        v.addWidget(QLabel("Click a swatch to copy its hex code."))
+        row = QHBoxLayout()
+        for hexc in colors:
+            swatch = QLabel(hexc)
+            swatch.setFixedSize(96, 64)
+            swatch.setStyleSheet(
+                f"background:{hexc}; color: white; padding: 6px;"
+                " border: 1px solid #222;"
+            )
+            swatch.setAlignment(Qt.AlignCenter)
+            swatch.mousePressEvent = (
+                lambda _ev, c=hexc: (
+                    QGuiApplication.clipboard().setText(c),
+                    self.statusBar().showMessage(f"Copied {c}", 2000),
+                )
+            )
+            row.addWidget(swatch)
+        v.addLayout(row)
+        dlg.exec()
+
+    # ---------------- eyedropper ----------------
+    def _on_color_picked(self, hex_color: str):
+        QGuiApplication.clipboard().setText(hex_color)
+        self.toolbar.revert_to_select_silent()
+        self.scene.set_active_tool("select")
+        self.statusBar().showMessage(
+            f"Sampled {hex_color} (copied to clipboard)", 4000
+        )
+
     # ---------------- drag and drop ----------------
     def dragEnterEvent(self, event):
         if self._drop_has_image(event.mimeData()):
@@ -457,9 +587,49 @@ class MainWindow(QMainWindow):
         name = (self._current_path.name if self._current_path else "Untitled.mcv")
         self.setWindowTitle(f"Klip - {name}")
 
+    _SHAPE_HINTS = {
+        Tool.RECT: "Click on canvas to drop a rectangle. Press Esc to cancel.",
+        Tool.ELLIPSE: "Click on canvas to drop an ellipse. Press Esc to cancel.",
+        Tool.POLYGON: "Click on canvas to drop a polygon. Press Esc to cancel.",
+        Tool.LINE: "Click on canvas to drop a line. Press Esc to cancel.",
+        Tool.TEXT: "Click on canvas to drop a text box. Press Esc to cancel.",
+    }
+
     def _on_tool_changed(self, tool: Tool):
-        self.scene.set_active_tool(tool.value)
-        self.statusBar().showMessage(f"Tool: {tool.value}", 2000)
+        if tool in self._SHAPE_HINTS:
+            self.scene.set_active_tool(tool.value)
+            self.statusBar().showMessage(self._SHAPE_HINTS[tool])
+            return
+        if tool == Tool.SELECT:
+            self.scene.set_active_tool("select")
+            self.statusBar().showMessage("Select & move", 2000)
+            return
+        if tool == Tool.HAND:
+            self.scene.set_active_tool("hand")
+            self.statusBar().showMessage("Pan tool", 2000)
+            return
+        if tool == Tool.PICK:
+            self.scene.set_active_tool("pick")
+            self.statusBar().showMessage(
+                "Eyedropper armed. Click anywhere on canvas to sample a color."
+            )
+            return
+        # One-shot action tools — fire immediately, revert to SELECT silently
+        # so the action's own status message stays visible.
+        if tool == Tool.IMAGE:
+            self._insert_image_dialog()
+        elif tool == Tool.FONT:
+            self._install_font_dialog()
+        elif tool == Tool.BG_REMOVE:
+            self._run_bg_remove_on_selection()
+        elif tool == Tool.EXTRACT:
+            self._run_palette_extract_on_selection()
+        elif tool == Tool.CLIP:
+            self.statusBar().showMessage(
+                "Clip (image inside shape) — coming in a later update.", 4000
+            )
+        self.scene.set_active_tool("select")
+        self.toolbar.revert_to_select_silent()
 
     def _on_item_added(self, item_id: str):
         self.pages_panel.refresh()

@@ -73,3 +73,12 @@ class KlipToolbar(QToolBar):
         self._actions[tool].setChecked(True)
         self._active = tool
         self.tool_changed.emit(tool)
+
+    def revert_to_select_silent(self) -> None:
+        """Toggle UI back to SELECT without firing tool_changed (for programmatic
+        revert after one-shot action tools, so we don't clobber a status message)."""
+        if self._active == Tool.SELECT:
+            return
+        self._actions[self._active].setChecked(False)
+        self._actions[Tool.SELECT].setChecked(True)
+        self._active = Tool.SELECT

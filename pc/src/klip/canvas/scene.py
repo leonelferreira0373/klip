@@ -1,10 +1,11 @@
 import uuid
 from typing import Mapping, Optional
 
-from PySide6.QtCore import QRectF, Signal
-from PySide6.QtGui import QBrush, QColor
+from PySide6.QtCore import QRectF, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QImage, QPainter
 from PySide6.QtWidgets import QGraphicsScene
 
+from ..color.picker import hex_at
 from ..document.items.base import ItemAdapter
 from ..document.schema import (
     AssetModel,
@@ -17,6 +18,7 @@ from ..document.schema import (
 
 class KlipScene(QGraphicsScene):
     item_added = Signal(str)  # item id
+    color_picked = Signal(str)  # hex color from eyedropper
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -40,8 +42,25 @@ class KlipScene(QGraphicsScene):
     def set_active_tool(self, tool_value: str) -> None:
         self._active_tool = tool_value
 
+    def sample_color_at(self, scene_pos) -> Optional[str]:
+        rect = self.sceneRect()
+        if rect.isEmpty():
+            return None
+        img = QImage(int(rect.width()), int(rect.height()), QImage.Format_ARGB32)
+        img.fill(Qt.white)
+        painter = QPainter(img)
+        painter.setRenderHint(QPainter.Antialiasing)
+        self.render(painter, QRectF(img.rect()), rect)
+        painter.end()
+        return hex_at(img, int(scene_pos.x()), int(scene_pos.y()))
+
     def handle_canvas_click(self, scene_pos):
         """Drop a new item at scene_pos based on the active tool."""
+        if self._active_tool in ("pick", "eyedrop"):
+            color = self.sample_color_at(scene_pos)
+            if color is not None:
+                self.color_picked.emit(color)
+            return None
         if self._active_tool is None or self._active_tool in ("select", "hand"):
             return None
         new_model = None
