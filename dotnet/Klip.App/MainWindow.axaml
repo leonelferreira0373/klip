@@ -1,0 +1,413 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:wv="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.WebView"
+        mc:Ignorable="d" d:DesignWidth="1320" d:DesignHeight="860"
+        x:Class="Klip.App.MainWindow"
+        Title="KLIP Animator" Width="1320" Height="860"
+        Background="#FDFDFC"
+        RequestedThemeVariant="Light"
+        FontFamily="avares://Klip.App/Assets/Fonts#Manrope"
+        FontWeight="SemiBold"
+        DragDrop.AllowDrop="True"
+        SystemDecorations="BorderOnly">
+    <Window.Styles>
+        <!-- botões da sidebar: micro-animações suaves (nunca snappy) -->
+        <Style Selector="Button.side">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#5E5E5B"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" Easing="SineEaseOut"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="SineEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.side:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#F1F1EF"/>
+        </Style>
+        <Style Selector="Button.side:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.9)"/>
+        </Style>
+
+        <Style Selector="Button.mini">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#6B6B68"/>
+            <Setter Property="Padding" Value="7,4"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" Easing="SineEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.mini:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#F1F1EF"/>
+        </Style>
+
+        <Style Selector="ComboBox.chat">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Background" Value="#F4F4F2"/>
+            <Setter Property="Foreground" Value="#2A2A28"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#E4E4E1"/>
+            <Setter Property="Padding" Value="10,0,6,0"/>
+        </Style>
+        <Style Selector="ComboBox.chat:pointerover">
+            <Setter Property="Background" Value="#ECECEA"/>
+        </Style>
+        <Style Selector="ComboBox.chat /template/ ContentPresenter">
+            <Setter Property="Foreground" Value="#2A2A28"/>
+        </Style>
+        <Style Selector="ComboBoxItem">
+            <Setter Property="Foreground" Value="#2A2A28"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style Selector="Button.aiopt">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#2A2A28"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Transitions">
+                <Transitions><BrushTransition Property="Background" Duration="0:0:0.14" Easing="SineEaseOut"/></Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.aiopt:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#F1F1EF"/>
+        </Style>
+        <Style Selector="Button.aiopt.sel">
+            <Setter Property="Background" Value="#EEEBFF"/>
+            <Setter Property="Foreground" Value="#5B49E0"/>
+        </Style>
+
+        <!-- botões da title bar custom -->
+        <Style Selector="Button.wbtn, Button.wclose">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#6B6B68"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.wbtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#ECECEA"/>
+        </Style>
+        <Style Selector="Button.wclose:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#E0245E"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="38,*">
+
+      <!-- ============ TITLE BAR custom (full bleed) ============ -->
+      <Grid Grid.Row="0" x:Name="TitleBar" Background="#FDFDFC" ColumnDefinitions="*,Auto"
+            PointerPressed="OnTitleBarPressed">
+        <StackPanel Orientation="Horizontal" Spacing="9" Margin="14,0,0,0" VerticalAlignment="Center">
+          <Border Width="18" Height="18" CornerRadius="5" Background="#6D5EF6">
+            <TextBlock Text="K" Foreground="White" FontWeight="Bold" FontSize="11"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <TextBlock Text="KLIP Animator" FontSize="12" FontWeight="SemiBold" Foreground="#3A3A38"
+                     VerticalAlignment="Center"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button x:Name="BrowserBtn" Classes="wbtn" Click="OnToggleBrowser" Content="◍"
+                  ToolTip.Tip="Browser embutido (pesquisa, download p/ a tela)" FontSize="15"/>
+          <Button x:Name="NewCompBtn" Classes="wbtn" Click="OnNewComposition" Content="＋"
+                  ToolTip.Tip="Nova composição (lado a lado, IA independente)" Foreground="#6D5EF6" FontSize="15"/>
+          <Border Width="1" Height="16" Background="#ECECEA" Margin="4,0"/>
+          <Button Classes="wbtn" Click="OnMinimize" Content="﹘" ToolTip.Tip="Minimizar"/>
+          <Button Classes="wbtn" Click="OnMaxRestore" Content="▢" FontSize="12" ToolTip.Tip="Maximizar/Restaurar"/>
+          <Button Classes="wclose" Click="OnCloseWindow" Content="✕" ToolTip.Tip="Fechar"/>
+        </StackPanel>
+      </Grid>
+
+    <!-- col2 = browser (0 fechado · *=metade · full no ⛶); col3 = camadas (fica ao lado) -->
+    <Grid Grid.Row="1" x:Name="ContentGrid" ColumnDefinitions="52,*,0,246">
+
+        <!-- ============ SIDEBAR fina: todas as ferramentas ============ -->
+        <Border Grid.Column="0" Background="#FDFDFC" BorderBrush="#ECECEA" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <!-- Definições / atalhos -->
+                <Button x:Name="SettingsBtn" DockPanel.Dock="Bottom" Classes="side" Margin="0,4,0,4"
+                        HorizontalAlignment="Center" Content="⌨" FontSize="15" ToolTip.Tip="Atalhos e definições">
+                    <Button.Flyout>
+                        <Flyout Placement="RightEdgeAlignedBottom">
+                            <StackPanel Width="260" Spacing="2" Margin="6">
+                                <TextBlock Text="Atalhos de teclado" FontWeight="Bold" FontSize="13"
+                                           Foreground="#2A2A28" Margin="0,0,0,6"/>
+                                <ItemsControl x:Name="HotkeysList"/>
+                                <TextBlock Text="Configuráveis via %APPDATA%\Klip\hotkeys.json"
+                                           FontSize="10" Foreground="#B5B5B2" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+
+                <!-- PFP / login em baixo -->
+                <Button x:Name="PfpBtn" DockPanel.Dock="Bottom" Classes="side" Margin="0,4,0,12"
+                        HorizontalAlignment="Center" ToolTip.Tip="Conta">
+                    <Border Width="30" Height="30" CornerRadius="15" ClipToBounds="True" Background="#6D5EF6">
+                        <Grid>
+                            <Image x:Name="PfpImg" Stretch="UniformToFill"/>
+                            <TextBlock x:Name="PfpInitial" Text="L" Foreground="White" FontWeight="Bold"
+                                       FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <Button.Flyout>
+                        <Flyout Placement="RightEdgeAlignedBottom">
+                            <StackPanel Width="230" Spacing="8" Margin="4">
+                                <TextBlock Text="A tua conta" FontWeight="Bold" FontSize="13" Foreground="#3A3A38"/>
+                                <TextBlock x:Name="EmailLbl" FontSize="11" Foreground="#9A9A97"/>
+                                <TextBox x:Name="NameBox" Watermark="o teu nome…" FontSize="12"/>
+                                <Button Classes="mini" Click="OnPfpSaveName" HorizontalAlignment="Left">Guardar nome</Button>
+                                <Button Classes="mini" Click="OnPickPfp" HorizontalAlignment="Left">Foto de perfil… (≤5 MB)</Button>
+                                <TextBlock Text="Login OTP por email — em breve (worker FK)." FontSize="10"
+                                           Foreground="#B5B5B2" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+
+                <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                    <StackPanel Margin="0,10,0,0" Spacing="2" HorizontalAlignment="Center">
+                        <Button x:Name="PenBtn" Classes="side" Click="OnPenToggle" Content="✒"
+                                ToolTip.Tip="Caneta — clique=canto · arrastar=curva · 1º ponto fecha · Enter aberto · Esc"/>
+                        <Border Height="1" Width="24" Background="#ECECEA" Margin="0,5"/>
+                        <Button Classes="side" Click="OnAddStar" Content="★" ToolTip.Tip="Estrela"/>
+                        <Button Classes="side" Click="OnAddCircle" Content="●" ToolTip.Tip="Círculo"/>
+                        <Button Classes="side" Click="OnAddRect" Content="▬" ToolTip.Tip="Retângulo"/>
+                        <Button Classes="side" Click="OnAddSquircle" Content="▢" ToolTip.Tip="Squircle"/>
+                        <Button Classes="side" Content="T" FontWeight="Bold" ToolTip.Tip="Texto → contornos vetoriais">
+                            <Button.Flyout>
+                                <Flyout Placement="Right">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="2">
+                                        <TextBox x:Name="TextInput" Width="150" Watermark="texto…" FontSize="12"/>
+                                        <Button Classes="mini" Click="OnAddText">OK</Button>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                        <Border Height="1" Width="24" Background="#ECECEA" Margin="0,5"/>
+                        <Button Classes="side" Click="OnSubtract" Content="⊖" ToolTip.Tip="Subtrair (camada de baixo da selecionada)"/>
+                        <Button Classes="side" Click="OnUnion" Content="⊕" ToolTip.Tip="Unir"/>
+                        <Button Classes="side" Click="OnIntersect" Content="⊗" ToolTip.Tip="Intersetar"/>
+                        <Button Classes="side" Click="OnPowerClip" Content="⬚" ToolTip.Tip="PowerClip — meter dentro da forma abaixo"/>
+                        <Border Height="1" Width="24" Background="#ECECEA" Margin="0,5"/>
+                        <Button Classes="side" Click="OnGradient" Content="◐" ToolTip.Tip="Gradiente (cicla presets)"/>
+                        <Button Classes="side" Click="OnExtractPalette" Content="▤" ToolTip.Tip="Extrair paleta da imagem selecionada (blocos + hex)"/>
+                        <Button Classes="side" Click="OnRotL" Content="⟲" ToolTip.Tip="Rodar −15°"/>
+                        <Button Classes="side" Click="OnRotR" Content="⟳" ToolTip.Tip="Rodar +15°"/>
+                        <Border Height="1" Width="24" Background="#ECECEA" Margin="0,5"/>
+                        <Button x:Name="GridBtn" Classes="side" Click="OnGridCycle" Content="▦"
+                                ToolTip.Tip="Grelha de construção: off"/>
+                        <Button x:Name="SnapBtn" Classes="side" Click="OnSnap" Content="⌗"
+                                ToolTip.Tip="Snap à grelha: off"/>
+                        <Button x:Name="PlayBtn" Classes="side" Click="OnPlay" Content="▶" ToolTip.Tip="Reproduzir a timeline"/>
+                        <Button x:Name="TimelineBtn" Classes="side" Click="OnToggleTimeline" Content="⧗"
+                                ToolTip.Tip="Editor de timeline (keyframes + scrub)"/>
+                        <Button x:Name="HandBtn" Classes="side" Click="OnHandTool" Content="✋"
+                                ToolTip.Tip="Mão — arrasta a tela livremente (ou mantém Espaço). Scroll = pan · Ctrl/pinch = zoom"/>
+                        <Button Classes="side" Click="OnFitView" Content="⛶" ToolTip.Tip="Ajustar à janela"/>
+                        <Border Height="1" Width="24" Background="#ECECEA" Margin="0,5"/>
+                        <Button Classes="side" Click="OnSave" Content="💾" FontSize="13" ToolTip.Tip="Guardar .klip"/>
+                        <Button Classes="side" Click="OnOpen" Content="📂" FontSize="13" ToolTip.Tip="Abrir .klip"/>
+                        <Button Classes="side" Click="OnUndo" Content="↺" ToolTip.Tip="Undo (Ctrl+Z)"/>
+                        <Button Classes="side" Click="OnRedo" Content="↻" ToolTip.Tip="Redo (Ctrl+Y)"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ============ CENTRO: canvas infinito + réguas + CHAT flutuante ============ -->
+        <Grid Grid.Column="1" RowDefinitions="18,*,Auto" ColumnDefinitions="18,*">
+            <Canvas x:Name="RulerTop" Grid.Row="0" Grid.Column="1" Height="18" ClipToBounds="True" Background="#F7F7F5"/>
+            <Canvas x:Name="RulerLeft" Grid.Row="1" Grid.Column="0" Width="18" ClipToBounds="True" Background="#F7F7F5"/>
+
+            <!-- ============ TIMELINE EDITOR (fundo) ============ -->
+            <Border x:Name="TimelinePanel" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Height="162"
+                    Background="#FBFBFA" BorderBrush="#ECECEA" BorderThickness="0,1,0,0" IsVisible="False"
+                    ClipToBounds="True">
+                <Grid RowDefinitions="26,*">
+                    <DockPanel Grid.Row="0" Background="#F4F4F2" LastChildFill="False">
+                        <Button DockPanel.Dock="Left" Classes="mini" Click="OnPlay" Content="▶" Margin="6,0,0,0"/>
+                        <TextBlock x:Name="TimeLbl" DockPanel.Dock="Left" Text="0.00s" FontSize="11"
+                                   Foreground="#6B6B68" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <Button DockPanel.Dock="Right" Classes="mini" Click="OnToggleTimeline" Content="✕" Margin="0,0,6,0"/>
+                        <TextBlock DockPanel.Dock="Right" Text="Timeline" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#8A8A87" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    </DockPanel>
+                    <Image x:Name="TimelineImg" Grid.Row="1" Stretch="Fill"
+                           PointerPressed="OnTimelinePressed" PointerMoved="OnTimelineMoved" PointerReleased="OnTimelineReleased"/>
+                </Grid>
+            </Border>
+
+            <Border x:Name="CanvasHost" Grid.Row="1" Grid.Column="1" ClipToBounds="True" Background="#FFFFFF">
+                <Grid>
+                    <Image x:Name="Canvas" Stretch="Fill"/>
+                    <Canvas x:Name="Overlay" IsHitTestVisible="False">
+                        <Border x:Name="HoverBox" BorderBrush="#7C6DF7" BorderThickness="1.25" CornerRadius="2"
+                                Opacity="0.7" IsVisible="False"/>
+                        <Border x:Name="SelBox" BorderBrush="#6D5EF6" BorderThickness="1.5" IsVisible="False"/>
+                        <Border x:Name="Handle" Width="11" Height="11" Background="#6D5EF6"
+                                BorderBrush="White" BorderThickness="1.5" IsVisible="False"/>
+                        <Polyline x:Name="PenPreview" Stroke="#E0245E" StrokeThickness="1.5"
+                                  StrokeDashArray="4,3" IsVisible="False"/>
+                    </Canvas>
+
+                    <!-- camada hit-testável só p/ o botão X de apagar guias (Canvas sem fundo deixa passar cliques) -->
+                    <Canvas x:Name="GuideLayer">
+                        <Button x:Name="GuideX" Width="20" Height="20" Padding="0" IsVisible="False"
+                                Background="#E0245E" Foreground="White" CornerRadius="10" FontSize="12"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                Content="✕" Click="OnDeleteGuide" ToolTip.Tip="Apagar guia"/>
+                    </Canvas>
+
+                    <!-- CHAT flutuante, arredondado, sobre o canvas -->
+                    <Border x:Name="ChatCard" Width="560" VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                            Margin="0,0,0,16" Background="#FFFFFE" BorderBrush="#E4E4E1" BorderThickness="1"
+                            CornerRadius="16" BoxShadow="0 10 34 0 #12000000" Opacity="0"
+                            RenderTransform="translateY(16px)">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.30" Easing="CubicEaseOut"/>
+                                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.30" Easing="CubicEaseOut"/>
+                            </Transitions>
+                        </Border.Transitions>
+                        <StackPanel Margin="14,10,14,10">
+                            <TextBox x:Name="ChatLog" MaxHeight="150" IsReadOnly="True" AcceptsReturn="True"
+                                     TextWrapping="Wrap" FontSize="11.5" Background="Transparent"
+                                     BorderThickness="0" Foreground="#33322F" IsVisible="False"/>
+                            <!-- spinner + palavras (esconde a "cozinha": só se vê o progresso, não as ações) -->
+                            <StackPanel x:Name="ThinkingBar" Orientation="Horizontal" Spacing="9"
+                                        IsVisible="False" Margin="2,2,0,6" VerticalAlignment="Center">
+                                <Border x:Name="Spinner" Width="15" Height="15" BorderThickness="2.2"
+                                        BorderBrush="#6D5EF6" CornerRadius="8"
+                                        RenderTransformOrigin="0.5,0.5">
+                                    <Border Width="6" Height="6" Background="#FFFFFE" CornerRadius="3"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0"/>
+                                </Border>
+                                <TextBlock x:Name="ThinkingWord" Text="A pensar…" FontSize="12.5"
+                                           FontWeight="SemiBold" Foreground="#6D5EF6" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <DockPanel Margin="0,2,0,0">
+                                <Button Classes="side" Width="30" Height="30" DockPanel.Dock="Left" Content="＋"
+                                        Click="OnAttach" ToolTip.Tip="Adicionar SVG/PNG/imagem (vídeo não suportado)"/>
+                                <Button x:Name="ChatStop" Classes="side" Width="30" Height="30" DockPanel.Dock="Right"
+                                        Content="■" Foreground="#E0245E" Click="OnChatStop" IsVisible="False"
+                                        ToolTip.Tip="Parar"/>
+                                <Button x:Name="ChatSend" DockPanel.Dock="Right" Width="30" Height="30"
+                                        CornerRadius="15" Background="#6D5EF6" Foreground="White" FontSize="14"
+                                        Padding="0" HorizontalContentAlignment="Center" Content="↑"
+                                        Click="OnSendChat" ToolTip.Tip="Enviar"/>
+                                <Button Classes="side" Width="30" Height="30" DockPanel.Dock="Right" Content="🎙"
+                                        FontSize="12" Click="OnMic" ToolTip.Tip="Voz (transcrição + fala) — em breve"/>
+                                <TextBox x:Name="ChatInput" Watermark="descreve o que criar…" FontSize="12.5"
+                                         Background="Transparent" BorderThickness="0" Margin="4,0" Foreground="#26251F"
+                                         VerticalContentAlignment="Center" KeyDown="OnChatKey"/>
+                            </DockPanel>
+                            <DockPanel Margin="0,8,0,0">
+                                <Button x:Name="AiMenuBtn" DockPanel.Dock="Left" Classes="chat" Padding="11,0,9,0"
+                                        Background="#F4F4F2" BorderBrush="#E4E4E1" BorderThickness="1" CornerRadius="9"
+                                        MinHeight="28" FontSize="11.5" FontWeight="SemiBold" Foreground="#2A2A28">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock x:Name="AiMenuLabel" Text="✦ KLIP AI" VerticalAlignment="Center"/>
+                                        <TextBlock Text="⌄" FontSize="12" Foreground="#8A8A87" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <Button.Flyout>
+                                        <Flyout Placement="Top">
+                                            <StackPanel Width="220" Spacing="1" Margin="3">
+                                                <TextBlock Text="Modelos" FontSize="10.5" FontWeight="SemiBold"
+                                                           Foreground="#9A9A97" Margin="10,4,0,4"/>
+                                                <Button Classes="aiopt" Click="OnPickAi" Tag="klip" Content="✦ KLIP AI"/>
+                                                <Button Classes="aiopt" Click="OnPickAi" Tag="sonnet" Content="Sonnet 5"/>
+                                                <Button Classes="aiopt" Click="OnPickAi" Tag="haiku" Content="Haiku 4.5"/>
+                                                <Button Classes="aiopt" Click="OnPickAi" Tag="cli" Content="Claude Code (CLI)"/>
+                                                <Button Classes="aiopt" Click="OnPickAi" Tag="byok" Content="BYOK — chave própria"/>
+                                                <StackPanel x:Name="ByokPanel" IsVisible="False" Spacing="5" Margin="4,8,4,2">
+                                                    <TextBlock Text="Chave Anthropic (sk-ant-…)" FontSize="10.5" Foreground="#8A8A87"/>
+                                                    <DockPanel>
+                                                        <TextBlock x:Name="ByokStatus" DockPanel.Dock="Right" FontSize="14"
+                                                                   VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                                        <TextBox x:Name="ByokKey" Watermark="sk-ant-api03-…" FontSize="11"
+                                                                 FontFamily="Consolas,monospace" TextChanged="OnByokChanged"/>
+                                                    </DockPanel>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                                <TextBlock x:Name="TokensLbl" Text="0 tok · $0.00" FontSize="11"
+                                           Foreground="#6B6B68" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ============ PAINEL DIREITO: camadas + inspector ============ -->
+        <Border Grid.Column="3" Background="#FDFDFC" BorderBrush="#ECECEA" BorderThickness="1,0,0,0">
+            <DockPanel Margin="12">
+                <TextBlock DockPanel.Dock="Top" Text="Camadas" Foreground="#6B6B68" FontWeight="Bold"
+                           FontSize="12" Margin="0,2,0,8"/>
+                <StackPanel DockPanel.Dock="Bottom" Spacing="5" Margin="0,10,0,0">
+                    <TextBlock Text="Inspector" Foreground="#6B6B68" FontWeight="Bold" FontSize="12"/>
+                    <TextBlock x:Name="Inspector" Text="(clica num objeto)" Foreground="#9A9A97"
+                               FontSize="11" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="3" Margin="0,8,0,0">
+                    <Button Classes="mini" Click="OnLayerUp">↑</Button>
+                    <Button Classes="mini" Click="OnLayerDown">↓</Button>
+                    <Button Classes="mini" Click="OnDuplicate">⧉</Button>
+                    <Button Classes="mini" Click="OnDelete">🗑</Button>
+                </StackPanel>
+                <ListBox x:Name="LayerList" Background="#F7F7F5" Foreground="#3A3A38" FontSize="12"
+                         CornerRadius="10" SelectionChanged="OnLayerPicked"/>
+            </DockPanel>
+        </Border>
+        <!-- ============ BROWSER embutido (coluna própria — meia tela, camadas ao lado) ============ -->
+        <Border x:Name="BrowserPanel" Grid.Column="2" Background="#FDFDFC"
+                BorderBrush="#ECECEA" BorderThickness="1,0,1,0" IsVisible="False">
+          <Grid RowDefinitions="48,*">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto" Background="#F7F7F5" Margin="0">
+              <Button Grid.Column="0" Classes="mini" Click="OnBrowserBack" Content="‹" FontSize="18" Margin="8,0,0,0"/>
+              <Button Grid.Column="1" Classes="mini" Click="OnBrowserForward" Content="›" FontSize="18"/>
+              <Button Grid.Column="2" Classes="mini" Click="OnBrowserReload" Content="⟳" FontSize="14"/>
+              <TextBox Grid.Column="3" x:Name="BrowserUrl" Margin="8,8" FontSize="12.5" Foreground="#26251F"
+                       Watermark="pesquisa ou URL…" VerticalContentAlignment="Center" CornerRadius="9"
+                       KeyDown="OnBrowserUrlKey"/>
+              <Button Grid.Column="4" Classes="mini" Click="OnBrowserToCanvas" Content="→ Tela"
+                      Foreground="#6D5EF6" ToolTip.Tip="Baixar a imagem/página atual para a tela"/>
+              <Button x:Name="BrowserFullBtn" Grid.Column="5" Classes="mini" Click="OnBrowserFullscreen"
+                      Content="⛶" FontSize="14" ToolTip.Tip="Ecrã inteiro / meia tela"/>
+              <Button Grid.Column="6" Classes="mini" Click="OnToggleBrowser" Content="✕" Margin="0,0,8,0"/>
+            </Grid>
+            <wv:NativeWebView Grid.Row="1" x:Name="Browser"/>
+          </Grid>
+        </Border>
+    </Grid>
+    </Grid>
+</Window>

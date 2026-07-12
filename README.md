@@ -1,54 +1,45 @@
-# Klip
+# KLIP Animator
 
-Canva-style design app for Windows and Android, ADB-synced, fully offline.
+An AI-first native design and motion-graphics editor for Windows — a single self-contained `.exe`, no installer, no runtimes.
 
-See [docs/design.md](docs/design.md) for the design specification.
-See [docs/plan.md](docs/plan.md) for the implementation plan.
+Built in C#/.NET 10 with Avalonia + SkiaSharp. The whole editor is driven by an HTTP command bus, so the same actions power both the UI and an embedded AI that can compose, render, *look at its own output*, and refine — like a motion designer.
 
-## Status
+## Features
 
-- [x] Phase 0 — bootstrap
-- [x] Phase 1 — document & canvas foundation
-- [x] Phase 2 — layers, multi-page UI, undo, export
-- [x] Phase 3 — AI features (BG remover, picker, extractor, fonts)
-- [ ] Phase 4 — ADB sync
-- [ ] Phase 5 — Android foundation
-- [ ] Phase 6 — Android features + sync
-- [x] Phase 7 (PC) — PyInstaller .exe with bundled BiRefNet model
-- [ ] Phase 7 (Android) — signed .apk
+- **After Effects-style expression language** — real JavaScript on any property: `wiggle`, `loopOut`, `linear`, `valueAtTime`, springs.
+- **Real 3D** — extrude + bevel, lit, with a keyframable camera (dolly / orbit / truck). Vector, crisp at 4K.
+- **Built-in browser + vision** — search, click any image to pull it onto the canvas; the AI sees the page.
+- **Voice → text on-device** — transcribe audio/video locally (Whisper), no cloud.
+- **Lossless export** — MP4, GIF, SVG, Lottie, and CMYK TIFF with ICC profile for print.
+- **Native Rive + Lottie runtimes** — custom C# runtimes for `.riv` and bodymovin `.json`.
+- **Anchor points, parenting/nulls, trim-paths, path booleans, gradients, timeline editor.**
 
-## PC dev quickstart
+## Download
 
-```powershell
-cd pc
-.venv\Scripts\activate
-python -m klip.main
+Grab the latest single `.exe` from **[Releases](https://github.com/leonelferreira0373/klip/releases/latest)** — Windows 10/11, ~70 MB, no dependencies. Double-click and create.
+
+## Build from source
+
+```bash
+cd dotnet
+dotnet build -c Release
+# single-file self-contained publish:
+dotnet publish Klip.App/Klip.App.csproj -c Release -r win-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true \
+  -o out
 ```
 
-Run tests:
+Requires the .NET 10 SDK. See [`dotnet/ARCHITECTURE.md`](dotnet/ARCHITECTURE.md) for the engine/app layout.
 
-```powershell
-pytest -v
-```
+## AI credits
 
-## Build the Windows .exe
+KLIP runs Sonnet, Haiku, or KLIP AI. Bring your own Anthropic key (BYOK, stored locally in `%APPDATA%\Klip\ai.json`), or top up credits — pay by transfer and send the receipt inside the app; each receipt is verified by its EMIS digital signature.
 
-```powershell
-cd pc
-.venv\Scripts\activate
-python -m PyInstaller --noconfirm --clean build\klip.spec
-```
+## Structure
 
-Output at `pc/dist/Klip/Klip.exe` (one-folder bundle, ~1.1 GB — includes the
-BiRefNet ONNX model). The icon at `pc/build/icon.ico` is a placeholder; replace
-it with brand art any time and rebuild.
+- `dotnet/` — the .NET solution (`Klip.App` UI, `Klip.Engine` render/animation engine, `Klip.Model`).
+- `landing/` — the marketing site (static, deployed to Vercel).
 
-## What works after Phase 1
+---
 
-- New / Open / Save / Save As `.mcv` files (gzipped JSON)
-- Multi-page document model
-- Click-to-drop rectangle, ellipse, text on canvas
-- Image insert (loaded from .mcv assets)
-- Selection with 8 corner/edge handles
-- Move via drag
-- Pan + zoom (Ctrl+wheel)
+© Ferreira Korp · Made in Angola.

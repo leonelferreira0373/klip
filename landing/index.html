@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KLIP Animator — editor de design e motion AI-first</title>
+<meta name="description" content="KLIP Animator — editor nativo de design e motion graphics AI-first. Expressões estilo After Effects, 3D real, browser embutido, voz→texto, export 4K vetorial. Um único .exe." />
+<meta property="og:title" content="KLIP Animator" />
+<meta property="og:description" content="Editor de design e motion AI-first. Um único .exe." />
+<meta name="theme-color" content="#6D5EF6" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#211F1A; --ink-2:#5F5E5A; --ink-3:#6B6B68;
+    --bg:#FCFCFB; --card:#FFFFFF; --line:#EBEBE8; --line-2:#E0E0DC;
+    --brand:#6D5EF6; --brand-ink:#4A3FCB; --brand-tint:#EFEDFE; --brand-tint-2:#E4E1FC;
+    --r-sm:10px; --r:14px; --r-lg:20px; --r-xl:26px;
+    --s-1:8px; --s-2:16px; --s-3:24px; --s-4:32px; --s-5:48px; --s-6:64px; --s-7:96px;
+    --ease:cubic-bezier(.22,.61,.36,1); --ease-spring:cubic-bezier(.34,1.42,.7,1);
+    --shadow:0 10px 30px rgba(33,31,26,.06); --shadow-brand:0 12px 34px rgba(109,94,246,.30);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0 }
+  html{ scroll-behavior:smooth; -webkit-text-size-adjust:100% }
+  body{ font-family:"Manrope",system-ui,sans-serif; color:var(--ink); background:var(--bg);
+        line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden }
+  a{ color:inherit; text-decoration:none }
+  ::selection{ background:var(--brand-tint-2) }
+  :focus-visible{ outline:2.5px solid var(--brand); outline-offset:3px; border-radius:6px }
+  .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0) }
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 var(--s-3) }
+
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:9px;
+        font-family:inherit; font-weight:600; font-size:15px; min-height:48px; padding:0 22px;
+        border-radius:12px; border:1px solid var(--line-2); background:var(--card); color:var(--ink);
+        cursor:pointer; transition:transform .18s var(--ease), background .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease) }
+  .btn:hover{ transform:translateY(-2px); border-color:#CFCFCB }
+  .btn:active{ transform:translateY(0) scale(.985) }
+  .btn-primary{ background:var(--brand); color:#fff; border-color:var(--brand); box-shadow:var(--shadow-brand) }
+  .btn-primary:hover{ background:#5E4FF0; border-color:#5E4FF0; box-shadow:0 16px 40px rgba(109,94,246,.40) }
+  svg.i{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; flex:none }
+
+  header{ position:sticky; top:0; z-index:50; background:rgba(252,252,251,.78);
+          backdrop-filter:saturate(1.4) blur(12px); border-bottom:1px solid var(--line) }
+  .nav{ display:flex; align-items:center; justify-content:space-between; height:66px }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; letter-spacing:-.01em }
+  .logo{ width:28px; height:28px; border-radius:8px; background:var(--brand); color:#fff; display:grid; place-items:center; font-weight:800; font-size:15px }
+  .nav-right{ display:flex; align-items:center; gap:12px }
+  .lang{ display:flex; border:1px solid var(--line-2); border-radius:11px; overflow:hidden; height:44px }
+  .lang button{ border:0; background:transparent; font-family:inherit; font-weight:600; font-size:13px; padding:0 14px; min-width:44px; cursor:pointer; color:var(--ink-3); transition:background .18s var(--ease), color .18s var(--ease) }
+  .lang button[aria-pressed="true"]{ background:var(--brand-tint); color:var(--brand-ink) }
+  .nav .btn{ min-height:44px }
+
+  .hero{ text-align:center; padding:var(--s-7) 0 var(--s-6) }
+  .eyebrow{ display:inline-flex; align-items:center; gap:8px; background:var(--brand-tint); color:var(--brand-ink);
+            font-weight:600; font-size:13px; letter-spacing:.01em; padding:7px 15px; border-radius:999px; margin-bottom:var(--s-3) }
+  h1{ font-size:clamp(36px,6.4vw,62px); font-weight:800; letter-spacing:-.028em; line-height:1.03 }
+  h1 em{ font-style:normal; color:var(--brand) }
+  .sub{ font-size:clamp(16.5px,2.3vw,20px); color:var(--ink-2); max-width:60ch; margin:var(--s-3) auto var(--s-4); line-height:1.55 }
+  .cta{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap }
+  .meta{ display:block; color:var(--ink-3); font-size:13px; margin-top:var(--s-2); font-weight:500 }
+
+  .stage{ margin:var(--s-6) auto 0; position:relative; width:min(520px,100%); height:220px }
+  .mark{ position:absolute; left:50%; top:50%; width:128px; height:128px; margin:-64px 0 0 -64px;
+         border-radius:32px; background:var(--brand); display:grid; place-items:center; box-shadow:var(--shadow-brand);
+         animation:settle .9s var(--ease-spring) both, float 5.5s ease-in-out 1s infinite }
+  .mark span{ color:#fff; font-weight:800; font-size:60px; line-height:1 }
+  .ring{ position:absolute; left:50%; top:50%; width:210px; height:210px; margin:-105px 0 0 -105px;
+         border:1.5px dashed var(--brand-tint-2); border-radius:50%; animation:spin 26s linear infinite }
+  .chip{ position:absolute; background:var(--card); border:1px solid var(--line-2); box-shadow:var(--shadow);
+         font-weight:600; font-size:12.5px; padding:8px 13px; border-radius:11px; display:flex; align-items:center; gap:7px;
+         opacity:0; animation:pop .6s var(--ease) forwards }
+  .chip svg{ color:var(--brand) }
+  .chip.a{ left:2%; top:14%; animation-delay:.7s } .chip.b{ right:0; top:40%; animation-delay:.95s } .chip.c{ left:8%; bottom:8%; animation-delay:1.2s }
+  @keyframes settle{ from{ transform:translateY(-26px) scale(.9); opacity:0 } to{ transform:none; opacity:1 } }
+  @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-9px) } }
+  @keyframes spin{ to{ transform:rotate(360deg) } }
+  @keyframes pop{ from{ opacity:0; transform:translateY(8px) } to{ opacity:1; transform:none } }
+
+  section.block{ padding:var(--s-6) 0 }
+  .h2{ font-size:clamp(25px,4vw,36px); font-weight:800; letter-spacing:-.022em; text-align:center; line-height:1.1 }
+  .lead{ text-align:center; color:var(--ink-2); max-width:56ch; margin:var(--s-2) auto 0; font-size:16.5px }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:var(--s-2); margin-top:var(--s-5) }
+  .feat{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:var(--s-3);
+         transition:transform .2s var(--ease), border-color .2s var(--ease), box-shadow .2s var(--ease) }
+  .feat:hover{ transform:translateY(-3px); border-color:var(--line-2); box-shadow:var(--shadow) }
+  .feat .ic{ width:42px; height:42px; border-radius:12px; background:var(--brand-tint); color:var(--brand-ink); display:grid; place-items:center; margin-bottom:var(--s-2) }
+  .feat h3{ font-size:16.5px; font-weight:700; margin-bottom:5px; letter-spacing:-.01em }
+  .feat p{ font-size:14px; color:var(--ink-2); line-height:1.55 }
+
+  .price{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:var(--s-2); margin-top:var(--s-5) }
+  .plan{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:var(--s-3); text-align:center;
+         transition:transform .2s var(--ease), box-shadow .2s var(--ease) }
+  .plan:hover{ transform:translateY(-3px); box-shadow:var(--shadow) }
+  .plan.pop{ border:2px solid var(--brand); position:relative }
+  .plan.pop::after{ content:attr(data-tag); position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+                    background:var(--brand); color:#fff; font-size:11.5px; font-weight:700; letter-spacing:.02em; padding:4px 13px; border-radius:999px }
+  .plan .name{ color:var(--ink-3); font-weight:600; font-size:12.5px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:var(--s-1) }
+  .plan .kz{ font-size:29px; font-weight:800; letter-spacing:-.02em }
+  .plan .cr{ color:var(--brand-ink); font-weight:600; font-size:14px; margin-top:4px }
+  .note{ text-align:center; color:var(--ink-3); font-size:13.5px; margin:var(--s-3) auto 0; max-width:62ch }
+
+  .download{ text-align:center; background:var(--brand); color:#fff; border-radius:var(--r-xl); padding:var(--s-6) var(--s-3); margin:var(--s-3) 0 }
+  .download h2{ font-size:clamp(25px,4vw,36px); font-weight:800; letter-spacing:-.022em }
+  .download p{ opacity:.94; margin:var(--s-2) auto var(--s-4); max-width:52ch }
+  .download .btn-primary{ background:#fff; color:var(--brand-ink); border-color:#fff; box-shadow:0 14px 34px rgba(0,0,0,.20) }
+  .download .btn-primary:hover{ background:#fff; transform:translateY(-2px) scale(1.01) }
+
+  footer{ border-top:1px solid var(--line); padding:var(--s-4) 0; color:var(--ink-3); font-size:13.5px;
+          display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px }
+  footer a{ color:var(--brand-ink); font-weight:600 }
+
+  [data-reveal]{ opacity:0; transform:translateY(18px); transition:opacity .6s var(--ease), transform .6s var(--ease) }
+  [data-reveal].in{ opacity:1; transform:none }
+
+  @media (max-width:640px){
+    .hero{ padding:var(--s-6) 0 var(--s-5) } .stage{ height:200px }
+    .nav .btn span{ display:none } .nav .btn{ padding:0 12px }
+    footer{ justify-content:center; text-align:center }
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{ animation:none !important }
+    [data-reveal]{ opacity:1; transform:none; transition:none }
+    html{ scroll-behavior:auto }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a href="#top" class="brand"><span class="logo" aria-hidden="true">K</span> KLIP Animator</a>
+    <div class="nav-right">
+      <div class="lang" role="group" aria-label="idioma / language">
+        <button type="button" data-lang="pt" aria-pressed="true">PT</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <a href="#download" class="btn btn-primary">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span data-pt="Descarregar" data-en="Download">Descarregar</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <section class="wrap hero">
+    <span class="eyebrow"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z"/></svg>
+      <span data-pt="Editor de design e motion, nativo e AI-first" data-en="AI-first native design and motion editor">Editor de design e motion, nativo e AI-first</span>
+    </span>
+    <h1 data-pt="Desenha e anima com uma IA que <em>vê</em> o que fazes." data-en="Design and animate with an AI that <em>sees</em> your work.">Desenha e anima com uma IA que <em>vê</em> o que fazes.</h1>
+    <p class="sub" data-pt="Expressões estilo After Effects, 3D real, browser embutido, voz→texto e export 4K vetorial — tudo num único .exe, sem instalação pesada."
+       data-en="After Effects-style expressions, real 3D, a built-in browser, voice→text and lossless 4K export — all in a single .exe, no heavy install.">Expressões estilo After Effects, 3D real, browser embutido, voz→texto e export 4K vetorial — tudo num único .exe, sem instalação pesada.</p>
+    <div class="cta">
+      <a href="#download" class="btn btn-primary">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span data-pt="Descarregar para Windows" data-en="Download for Windows">Descarregar para Windows</span>
+      </a>
+      <a href="#features" class="btn"><span data-pt="Ver o que faz" data-en="See what it does">Ver o que faz</span></a>
+    </div>
+    <small class="meta" data-pt="Windows 10/11 · .exe único · ~70 MB · sem dependências" data-en="Windows 10/11 · single .exe · ~70 MB · no dependencies">Windows 10/11 · .exe único · ~70 MB · sem dependências</small>
+
+    <div class="stage" aria-hidden="true">
+      <div class="ring"></div>
+      <div class="mark"><span>K</span></div>
+      <div class="chip a"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 7h16M4 12h10M4 17h7"/></svg> wiggle(2,30)</div>
+      <div class="chip b"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 2 2 7l10 5 10-5-10-5z"/></svg> 3D · 4K</div>
+      <div class="chip c"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M5 12l4 4L19 6"/></svg> spring</div>
+    </div>
+  </section>
+
+  <section id="features" class="wrap block">
+    <h2 class="h2" data-reveal data-pt="Um estúdio completo, conduzido por IA" data-en="A full studio, driven by AI">Um estúdio completo, conduzido por IA</h2>
+    <p class="lead" data-reveal data-pt="Pede em linguagem natural. A IA compõe, vê o render, critica e refina — como um motion designer." data-en="Ask in plain language. The AI composes, sees the render, critiques and refines — like a motion designer.">Pede em linguagem natural. A IA compõe, vê o render, critica e refina — como um motion designer.</p>
+    <div class="grid">
+      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/></svg></div>
+        <h3 data-pt="Linguagem de expressões AE" data-en="AE expression language">Linguagem de expressões AE</h3>
+        <p data-pt="JavaScript real em cada propriedade: wiggle, loopOut, linear, valueAtTime, springs. O segredo do estilo Apple." data-en="Real JavaScript on every property: wiggle, loopOut, linear, valueAtTime, springs. The Apple-style secret.">JavaScript real em cada propriedade: wiggle, loopOut, linear, valueAtTime, springs. O segredo do estilo Apple.</p></div>
+      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <h3 data-pt="3D real + câmara animável" data-en="Real 3D + animatable camera">3D real + câmara animável</h3>
+        <p data-pt="Extrude e bevel iluminados, câmara keyframável (dolly, orbit, truck). Vetorial, nítido a 4K." data-en="Lit extrude and bevel, keyframable camera (dolly, orbit, truck). Vector, crisp at 4K.">Extrude e bevel iluminados, câmara keyframável (dolly, orbit, truck). Vetorial, nítido a 4K.</p></div>
+      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></div>
+        <h3 data-pt="Browser embutido + visão" data-en="Built-in browser + vision">Browser embutido + visão</h3>
+        <p data-pt="Pesquisa, clica em qualquer imagem e traz para a tela. A IA vê a página e ajuda-te a navegar." data-en="Search, click any image to pull it onto the canvas. The AI sees the page and helps you browse.">Pesquisa, clica em qualquer imagem e traz para a tela. A IA vê a página e ajuda-te a navegar.</p></div>
+      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M8 7v10M16 7v10M4 10v4M20 10v4"/></svg></div>
+        <h3 data-pt="Voz → texto on-device" data-en="Voice → text on-device">Voz → texto on-device</h3>
+        <p data-pt="Transcreve áudio e vídeo localmente (Whisper). A mesma tech com que a IA lê imagens, mas para som." data-en="Transcribe audio and video locally (Whisper). The same tech the AI uses to read images, for sound.">Transcreve áudio e vídeo localmente (Whisper). A mesma tech com que a IA lê imagens, mas para som.</p></div>
+      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 9h16M9 9v11"/></svg></div>
+        <h3 data-pt="Export sem perdas" data-en="Lossless export">Export sem perdas</h3>
+        <p data-pt="MP4, GIF, SVG, Lottie e TIFF CMYK com perfil ICC para gráfica. 4K vetorial, sem pixelização." data-en="MP4, GIF, SVG, Lottie and CMYK TIFF with ICC profile for print. Vector 4K, no pixelation.">MP4, GIF, SVG, Lottie e TIFF CMYK com perfil ICC para gráfica. 4K vetorial, sem pixelização.</p></div>
+      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10h-10z"/><path d="M12 2v10h10"/></svg></div>
+        <h3 data-pt="Rive e Lottie nativos" data-en="Native Rive and Lottie">Rive e Lottie nativos</h3>
+        <p data-pt="Runtimes C# próprios: importa .riv e .json bodymovin, toca na timeline e exporta." data-en="Custom C# runtimes: import .riv and bodymovin .json, play on the timeline and export.">Runtimes C# próprios: importa .riv e .json bodymovin, toca na timeline e exporta.</p></div>
+    </div>
+  </section>
+
+  <section id="pricing" class="wrap block">
+    <h2 class="h2" data-reveal data-pt="Créditos de IA, pagos por Multicaixa" data-en="AI credits, paid by Multicaixa">Créditos de IA, pagos por Multicaixa</h2>
+    <p class="lead" data-reveal data-pt="Carrega créditos e usa Sonnet, Haiku ou KLIP AI. Paga por transferência e envia o comprovativo dentro da app — creditado na hora." data-en="Top up credits and use Sonnet, Haiku or KLIP AI. Pay by transfer and send the receipt inside the app — credited instantly.">Carrega créditos e usa Sonnet, Haiku ou KLIP AI. Paga por transferência e envia o comprovativo dentro da app — creditado na hora.</p>
+    <div class="price">
+      <div class="plan" data-reveal><div class="name">Starter</div><div class="kz">40 000 Kz</div><div class="cr">≈ $20 <span data-pt="de crédito" data-en="of credit">de crédito</span></div></div>
+      <div class="plan pop" data-reveal data-tag="Pro"><div class="name">Pro</div><div class="kz">200 000 Kz</div><div class="cr">≈ $100 <span data-pt="de crédito" data-en="of credit">de crédito</span></div></div>
+      <div class="plan" data-reveal><div class="name">Studio</div><div class="kz">400 000 Kz</div><div class="cr">≈ $200 <span data-pt="de crédito" data-en="of credit">de crédito</span></div></div>
+      <div class="plan" data-reveal><div class="name" data-pt="Personalizado" data-en="Custom">Personalizado</div><div class="kz" data-pt="≥ 40 000" data-en="≥ 40,000">≥ 40 000</div><div class="cr" data-pt="qualquer valor" data-en="any amount">qualquer valor</div></div>
+    </div>
+    <p class="note" data-reveal data-pt="Cada comprovativo é verificado pela assinatura digital EMIS. Sem cartões, sem intermediários." data-en="Every receipt is verified by its EMIS digital signature. No cards, no middlemen.">Cada comprovativo é verificado pela assinatura digital EMIS. Sem cartões, sem intermediários.</p>
+  </section>
+
+  <section id="download" class="wrap block">
+    <div class="download" data-reveal>
+      <h2 data-pt="Pronto a usar. Um único ficheiro." data-en="Ready to use. A single file.">Pronto a usar. Um único ficheiro.</h2>
+      <p data-pt="Descarrega, faz duplo-clique, cria. Sem instalador, sem runtimes, sem configuração." data-en="Download, double-click, create. No installer, no runtimes, no setup.">Descarrega, faz duplo-clique, cria. Sem instalador, sem runtimes, sem configuração.</p>
+      <a id="dl" href="#" class="btn btn-primary">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span data-pt="Descarregar KLIP Animator" data-en="Download KLIP Animator">Descarregar KLIP Animator</span>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <div>© <span id="yr">2026</span> Ferreira Korp · KLIP Animator</div>
+  <div><a id="src" href="#" data-pt="Código no GitHub" data-en="Source on GitHub">Código no GitHub</a> · <span data-pt="Feito em Angola" data-en="Made in Angola">Feito em Angola</span></div>
+</footer>
+
+<script>
+  var DOWNLOAD_URL = "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe";
+  var REPO_URL = "https://github.com/leonelferreira0373/klip";
+  document.getElementById("dl").href = DOWNLOAD_URL;
+  document.getElementById("src").href = REPO_URL;
+  document.getElementById("yr").textContent = new Date().getFullYear();
+
+  function setLang(l){
+    document.documentElement.lang = l;
+    document.querySelectorAll("[data-pt]").forEach(function(el){
+      var v = el.getAttribute("data-" + l);
+      if(v != null){ if(/<[a-z]/i.test(v)) el.innerHTML = v; else el.textContent = v; }
+    });
+    document.querySelectorAll(".lang button").forEach(function(b){
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === l));
+    });
+    try{ localStorage.setItem("klip_lang", l); }catch(e){}
+  }
+  document.querySelectorAll(".lang button").forEach(function(b){
+    b.addEventListener("click", function(){ setLang(b.getAttribute("data-lang")); });
+  });
+  var saved = "pt";
+  try{ saved = localStorage.getItem("klip_lang") || (navigator.language||"pt").slice(0,2); }catch(e){}
+  setLang(saved === "en" ? "en" : "pt");
+
+  var mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  if("IntersectionObserver" in window && !mq.matches){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { threshold:.12, rootMargin:"0px 0px -8% 0px" });
+    document.querySelectorAll("[data-reveal]").forEach(function(el){ io.observe(el); });
+  } else {
+    document.querySelectorAll("[data-reveal]").forEach(function(el){ el.classList.add("in"); });
+  }
+</script>
+</body>
+</html>

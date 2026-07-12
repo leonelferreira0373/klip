@@ -1,48 +1,30 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-.venv/
-venv/
-env/
-/build/
-pc/build/klip/
-pc/dist/
-dist/
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.coverage
-htmlcov/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-Thumbs.db
-.DS_Store
-desktop.ini
-
-# Klip
-*.mcv.bak
-exports/
-wheels/
+# build
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+# node
+landing/node_modules/
+# vendored C++ reference runtime (huge; KLIP's runtime is Klip.Engine/Rive in C#)
+external/
+# binaries & artifacts (o .exe vai como GitHub Release, não no git)
+*.exe
+*.pdb
+*.dll
+*.lib
+*.mp4
+*.zip
+# local scratch
+scratchpad/
+# render/export artifacts
+dotnet/_out/
+_out/
+# OLD python KLIP — apagado por ordem (2026-07-12); não republicar
+pc/
+*.log
+# sem python (KLIP é .NET agora)
+*.py
+klip.py
 pip-*.log
-
-# PyInstaller
-*.spec.bak
-
-# Android
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
-android/.idea/
-
-# Models — referenced from ~/.u2net, never commit
-*.onnx
+/docs/

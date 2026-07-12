@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Klip.Engine/Klip.Engine.csproj" />
+  <Project Path="Klip.Milestone/Klip.Milestone.csproj" />
+  <Project Path="Klip.Model/Klip.Model.csproj" />
+</Solution>
