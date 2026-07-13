@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KLIP Animator — receita gerada</title>
+<meta name="robots" content="index" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{ --ink:#211F1A; --ink2:#5F5E5A; --ink3:#6B6B68; --bg:#FCFCFB; --card:#FFFFFF; --line:#EBEBE8;
+         --brand:#6D5EF6; --brand-ink:#4A3FCB; --sq0:#EDECEA; --sq1:#CECBF6; --sq2:#AFA9EC; --sq3:#7F77DD; --sq4:#5B49E0; }
+  *{ box-sizing:border-box; margin:0; padding:0 }
+  body{ font-family:"Manrope",system-ui,sans-serif; background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased }
+  a{ color:var(--brand-ink); text-decoration:none }
+  .wrap{ max-width:900px; margin:0 auto; padding:48px 22px 80px }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; margin-bottom:44px }
+  .logo{ width:28px; height:28px; border-radius:8px; background:var(--brand); color:#fff; display:grid; place-items:center; font-weight:800; font-size:15px }
+  .eyebrow{ font-size:13px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--brand-ink) }
+  .big{ font-size:clamp(56px,15vw,140px); font-weight:800; letter-spacing:-.03em; line-height:1; margin:10px 0 6px; font-variant-numeric:tabular-nums }
+  .unit{ color:var(--brand) }
+  .sub{ color:var(--ink2); font-size:16px }
+  .sub b{ color:var(--ink) }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:18px; padding:24px; margin-top:44px; overflow-x:auto }
+  .card h2{ font-size:15px; font-weight:700; margin-bottom:4px }
+  .card p{ font-size:13px; color:var(--ink3); margin-bottom:18px }
+  .grid{ display:grid; grid-template-rows:repeat(7,13px); grid-auto-flow:column; grid-auto-columns:13px; gap:3px; min-width:max-content }
+  .sq{ width:13px; height:13px; border-radius:3px; background:var(--sq0) }
+  .legend{ display:flex; align-items:center; gap:6px; justify-content:flex-end; margin-top:14px; font-size:11.5px; color:var(--ink3) }
+  .legend .sq{ width:11px; height:11px }
+  footer{ margin-top:56px; color:var(--ink3); font-size:13px; display:flex; gap:16px; flex-wrap:wrap }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/" class="brand"><span class="logo">K</span> KLIP Animator</a>
+
+  <div class="eyebrow">Receita total gerada</div>
+  <div class="big"><span id="num">0</span> <span class="unit">Kz</span></div>
+  <div class="sub"><b id="cnt">0</b> pagamentos verificados · atualiza a cada comprovativo validado</div>
+
+  <div class="card">
+    <h2>Atividade</h2>
+    <p>Cada quadrado é um dia; a intensidade é a receita desse dia.</p>
+    <div class="grid" id="grid"></div>
+    <div class="legend">menos
+      <span class="sq" style="background:var(--sq0)"></span>
+      <span class="sq" style="background:var(--sq1)"></span>
+      <span class="sq" style="background:var(--sq2)"></span>
+      <span class="sq" style="background:var(--sq3)"></span>
+      <span class="sq" style="background:var(--sq4)"></span>
+      mais</div>
+  </div>
+
+  <footer>
+    <a href="/">← KLIP Animator</a>
+    <a href="https://github.com/leonelferreira0373/klip">GitHub</a>
+    <a href="/whitepaper">White paper</a>
+  </footer>
+</div>
+
+<script>
+  var API = "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/klip/revenue";
+  var numEl = document.getElementById("num"), cntEl = document.getElementById("cnt"), gridEl = document.getElementById("grid");
+
+  function fmt(n){
+    if(n < 1e5) return Math.round(n).toLocaleString("pt-PT");
+    var u = [["T",1e12],["B",1e9],["M",1e6],["k",1e3]];
+    for(var i=0;i<u.length;i++){ if(n>=u[i][1]){ var x=n/u[i][1]; return (x<10?x.toFixed(2):x.toFixed(1))+u[i][0]; } }
+    return String(Math.round(n));
+  }
+
+  function countUp(to){
+    var start = performance.now(), dur = 1400;
+    function step(t){
+      var p = Math.min((t-start)/dur, 1), e = 1-Math.pow(1-p,3);   // ease-out cubic
+      numEl.textContent = fmt(to*e);
+      if(p<1) requestAnimationFrame(step); else numEl.textContent = fmt(to);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function buildGrid(days){
+    gridEl.innerHTML = "";
+    var vals = Object.values(days); var max = Math.max(1, ...vals);
+    var today = new Date(); today.setHours(0,0,0,0);
+    var start = new Date(today); start.setDate(start.getDate() - 370);
+    start.setDate(start.getDate() - start.getDay());   // alinhar ao domingo
+    for(var d = new Date(start); d <= today; d.setDate(d.getDate()+1)){
+      var key = d.toISOString().slice(0,10), v = days[key] || 0;
+      var lvl = v<=0 ? 0 : v/max>.66 ? 4 : v/max>.33 ? 3 : v/max>.1 ? 2 : 1;
+      var sq = document.createElement("div"); sq.className="sq";
+      sq.style.background = "var(--sq"+lvl+")";
+      sq.title = key + (v>0 ? " · " + fmt(v) + " Kz" : "");
+      gridEl.appendChild(sq);
+    }
+  }
+
+  function load(animate){
+    fetch(API, { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(v){
+      cntEl.textContent = (v.count||0).toLocaleString("pt-PT");
+      if(animate) countUp(v.totalKz||0); else numEl.textContent = fmt(v.totalKz||0);
+      buildGrid(v.days||{});
+    }).catch(function(){ numEl.textContent = "—"; });
+  }
+  load(true);
+  setInterval(function(){ load(false); }, 30000);   // live: refresca a cada 30s
+</script>
+</body>
+</html>
