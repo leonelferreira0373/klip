@@ -1,12 +1,18 @@
 {
   "latest": {
-    "version": "1.0.1",
+    "version": "1.0.2",
     "date": "2026-07-13",
-    "md5": "ed4ddb3e98078bd00fabb131c44fda67",
-    "notes": "Paywall v2 (comprovativo→créditos, planos, fatura PDF), emails KLIP, motor de expressões AE, browser+visão, voz→texto, auto-update, error-log opt-in.",
+    "md5": "218ccc6d60059dcefad5d56c6d395b3b",
+    "notes": "Registo automatico de operacoes + metricas (RAM/CPU/uptime) com relatorio semanal encriptado (zip password klip{ano}), enviado so com opt-in. Motor de expressoes AE-grade (Jint). Transcricao Whisper offline. Pagina de receita publica + painel admin.",
     "url": "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe"
   },
   "history": [
+    {
+      "version": "1.0.2",
+      "date": "2026-07-13",
+      "md5": "218ccc6d60059dcefad5d56c6d395b3b",
+      "notes": "Registo automatico de operacoes + metricas (RAM/CPU/uptime) com relatorio semanal encriptado (zip password klip{ano}), enviado so com opt-in. Motor de expressoes AE-grade (Jint). Transcricao Whisper offline. Pagina de receita publica + painel admin."
+    },
     {
       "version": "1.0.1",
       "date": "2026-07-13",

@@ -112,6 +112,10 @@ public partial class MainWindow : Window
         // auto-update probe (verifica GitHub → descarrega em background → pronto a aplicar)
         _ = CheckForUpdateAsync();
 
+        // op-log: regista operações + métricas (local sempre; envio semanal só com opt-in)
+        OpLog.Start();
+        _ = OpLog.WeeklySendIfDue(WorkerRoot(), Ai.AiConfig.ResolveEmail());
+
         // entrada suave do chat (nunca snappy)
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {

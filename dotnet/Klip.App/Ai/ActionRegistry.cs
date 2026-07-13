@@ -263,10 +263,15 @@ public sealed class ActionRegistry
     {
         if (!Acts.TryGetValue(action, out var act))
             throw new InvalidOperationException($"ação desconhecida: {action}");
-        // Background=true: corre num thread do pool (transcrição pesada) sem congelar a UI.
-        return act.Background
-            ? await Task.Run(() => act.Run(args))
-            : await Dispatcher.UIThread.InvokeAsync(() => act.Run(args));
+        OpLog.Op("action", action);   // auto-registo de operações
+        try
+        {
+            // Background=true: corre num thread do pool (transcrição pesada) sem congelar a UI.
+            return act.Background
+                ? await Task.Run(() => act.Run(args))
+                : await Dispatcher.UIThread.InvokeAsync(() => act.Run(args));
+        }
+        catch (Exception ex) { OpLog.Error(action + ": " + ex.Message); throw; }
     }
 
     private static string? Str(JsonElement e, string n)
