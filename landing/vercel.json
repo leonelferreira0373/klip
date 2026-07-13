@@ -1,0 +1,7 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/terms", "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/terms" },
+    { "source": "/privacy", "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/privacy" }
+  ]
+}

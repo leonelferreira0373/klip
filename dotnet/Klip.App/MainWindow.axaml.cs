@@ -104,6 +104,14 @@ public partial class MainWindow : Window
         LoadHotkeyConfig();
         PopulateHotkeysList();
 
+        // error logging opt-in (semanal, só se o user ligar)
+        Telemetry.Install();
+        ErrLogChk.IsChecked = Telemetry.OptIn;
+        _ = Telemetry.WeeklySendIfDue(WorkerRoot(), Ai.AiConfig.ResolveEmail());
+
+        // auto-update probe (verifica GitHub → descarrega em background → pronto a aplicar)
+        _ = CheckForUpdateAsync();
+
         // entrada suave do chat (nunca snappy)
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
@@ -663,6 +671,161 @@ public partial class MainWindow : Window
         return new { _image = path, note = "a janela do KLIP" };
     }
 
+    // ================= PAYWALL / Créditos (comprovativo PDF → worker FK) =================
+    private static readonly System.Net.Http.HttpClient _pay = new() { Timeout = TimeSpan.FromSeconds(60) };
+    private double _selectedPlanKz = 200000;
+
+    /// <summary>Raiz do worker (as rotas de créditos estão na raiz, não em /ai).</summary>
+    private static string WorkerRoot()
+    {
+        var u = Ai.AiConfig.ResolveWorkerUrl().TrimEnd('/');
+        return u.EndsWith("/ai") ? u[..^3] : u;
+    }
+
+    /// <summary>Aproximação de iterações a partir de Kz (custos reais: Opus $25/1M, Haiku $5/1M output; ~8k tok/iter).</summary>
+    private static string IterLabel(double kz)
+    {
+        double usd = kz / 2000.0;
+        long lo = (long)Math.Round(usd / 25 * 1e6 / 8000), hi = (long)Math.Round(usd / 5 * 1e6 / 8000);
+        return $"~{lo:N0}–{hi:N0} iterações";
+    }
+
+    private void OnErrLogToggle(object? s, RoutedEventArgs e)
+    { if (ErrLogChk is not null) Telemetry.OptIn = ErrLogChk.IsChecked == true; }
+
+    private async Task CheckForUpdateAsync()
+    {
+        if (Updater.UpdateReady) Avalonia.Threading.Dispatcher.UIThread.Post(ShowUpdateReady);
+        var (newer, tag, url) = await Updater.CheckAsync();
+        if (!newer) return;
+        UiChat("✦", $"Nova versão {tag} disponível — a descarregar em background…");
+        var path = await Updater.DownloadAsync(url);
+        if (path is not null)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            { ShowUpdateReady(); AppendChat("✦", $"Atualização {tag} pronta. Vai a ⌨ → Atualizar (reinicia e aplica)."); });
+    }
+
+    private void ShowUpdateReady() { if (UpdateBtn is not null) UpdateBtn.IsVisible = true; }
+    private void OnApplyUpdate(object? s, RoutedEventArgs e) => Updater.Apply();
+
+    private void OnOpenPayment(object? s, RoutedEventArgs e) => OpenPayment();
+
+    private void OpenPayment()
+    {
+        if (string.IsNullOrWhiteSpace(PaymentEmail.Text)) PaymentEmail.Text = Ai.AiConfig.ResolveEmail();
+        PaymentStatus.Text = "";
+        _selectedPlanKz = 200000; HighlightPlan(PlanB);
+        PaymentPanel.IsVisible = true;
+        _ = RefreshBalance();
+    }
+
+    private void HighlightPlan(Button? sel)
+    {
+        foreach (var b in new[] { PlanA, PlanB, PlanC }) b.Classes.Set("sel", b == sel);
+    }
+
+    private void OnSelectPlan(object? s, RoutedEventArgs e)
+    {
+        if (s is Button b && double.TryParse(b.Tag?.ToString(), out var kz))
+        { _selectedPlanKz = kz; PlanCustom.Text = ""; HighlightPlan(b); }
+    }
+
+    private void OnCustomAmountKey(object? s, KeyEventArgs e)
+    {
+        var digits = new string((PlanCustom.Text ?? "").Where(char.IsDigit).ToArray());
+        if (double.TryParse(digits, out var kz) && kz > 0) { _selectedPlanKz = kz; HighlightPlan(null); }
+    }
+
+    private async void OnRequestPayment(object? s, RoutedEventArgs e)
+    {
+        var email = (PaymentEmail.Text ?? "").Trim();
+        if (string.IsNullOrEmpty(email) || !email.Contains('@')) { PaymentStatus.Text = "Escreve o teu email primeiro."; return; }
+        if (_selectedPlanKz < 40000) { PaymentStatus.Text = "Mínimo 40 000 Kz."; return; }
+        Ai.AiConfig.SetProfile("klip_email", email);
+        PaymentReqBtn.IsEnabled = false; PaymentStatus.Text = "A enviar os dados de pagamento…";
+        try
+        {
+            var body = new System.Net.Http.StringContent(
+                new System.Text.Json.Nodes.JsonObject { ["email"] = email, ["amount_kz"] = _selectedPlanKz }.ToJsonString(),
+                System.Text.Encoding.UTF8, "application/json");
+            var resp = await _pay.PostAsync(WorkerRoot() + "/klip/pay-request", body);
+            var n = System.Text.Json.Nodes.JsonNode.Parse(await resp.Content.ReadAsStringAsync());
+            PaymentStatus.Text = n?["ok"]?.GetValue<bool>() == true
+                ? $"✓ Email enviado para {email}. Abre o link (15 min) para copiar o IBAN, paga e envia o comprovativo aqui."
+                : "✗ " + (n?["error"]?.GetValue<string>() ?? "falha");
+        }
+        catch (Exception ex) { PaymentStatus.Text = "✗ erro: " + ex.Message; }
+        finally { PaymentReqBtn.IsEnabled = true; }
+    }
+
+    private void OnClosePayment(object? s, RoutedEventArgs e) => PaymentPanel.IsVisible = false;
+    private void OnPaymentBackdrop(object? s, PointerPressedEventArgs e) => PaymentPanel.IsVisible = false;
+    private void OnPaymentCardPressed(object? s, PointerPressedEventArgs e) => e.Handled = true;  // clicar no cartão não fecha
+
+    private async Task RefreshBalance()
+    {
+        var email = (PaymentEmail.Text ?? "").Trim();
+        if (string.IsNullOrEmpty(email)) { PaymentBalance.Text = "Saldo: — (define o teu email)"; return; }
+        try
+        {
+            var url = WorkerRoot() + "/credits/balance";
+            var body = new System.Net.Http.StringContent(
+                new System.Text.Json.Nodes.JsonObject { ["email"] = email }.ToJsonString(),
+                System.Text.Encoding.UTF8, "application/json");
+            var resp = await _pay.PostAsync(url, body);
+            var n = System.Text.Json.Nodes.JsonNode.Parse(await resp.Content.ReadAsStringAsync());
+            var bal = n?["balanceUsd"]?.GetValue<double>() ?? n?["balance_usd"]?.GetValue<double>() ?? 0;
+            PaymentBalance.Text = "Saldo: " + (bal <= 0 ? "0 iterações" : IterLabel(bal * 2000));
+        }
+        catch { PaymentBalance.Text = "Saldo: — (offline)"; }
+    }
+
+    private async void OnPickComprovativo(object? s, RoutedEventArgs e)
+    {
+        var email = (PaymentEmail.Text ?? "").Trim();
+        if (string.IsNullOrEmpty(email) || !email.Contains('@')) { PaymentStatus.Text = "Escreve o teu email primeiro."; return; }
+        Ai.AiConfig.SetProfile("klip_email", email);
+        var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = "Comprovativo (PDF)", AllowMultiple = false,
+            FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType("PDF") { Patterns = new[] { "*.pdf" } } },
+        });
+        if (files.Count == 0) return;
+        PaymentStatus.Text = "A verificar o comprovativo…"; PaymentSendBtn.IsEnabled = false;
+        try
+        {
+            await using var stream = await files[0].OpenReadAsync();
+            using var mem = new System.IO.MemoryStream();
+            await stream.CopyToAsync(mem);
+            using var content = new System.Net.Http.MultipartFormDataContent
+            {
+                { new System.Net.Http.ByteArrayContent(mem.ToArray()), "file", "comprovativo.pdf" },
+                { new System.Net.Http.StringContent(email), "email" },
+                { new System.Net.Http.StringContent("KLIP"), "product" },
+            };
+            var url = WorkerRoot() + "/comprovativo";
+            var resp = await _pay.PostAsync(url, content);
+            var n = System.Text.Json.Nodes.JsonNode.Parse(await resp.Content.ReadAsStringAsync());
+            if (n?["verdict"]?.GetValue<string>() == "VERDADEIRO")
+            {
+                var usd = n["creditsUsd"]?.GetValue<double>() ?? 0;
+                var bal = n["balanceUsd"]?.GetValue<double>() ?? 0;
+                PaymentStatus.Text = $"✓ Creditado (+{IterLabel(usd * 2000)}). Recebeste a fatura por email. Obrigado!";
+                PaymentBalance.Text = "Saldo: " + IterLabel(bal * 2000);
+                AppendChat("·", "créditos carregados — saldo " + IterLabel(bal * 2000));
+            }
+            else
+            {
+                var reason = n?["reason"] is System.Text.Json.Nodes.JsonArray a && a.Count > 0
+                    ? string.Join("; ", a.Select(x => x?.GetValue<string>()))
+                    : (n?["error"]?.GetValue<string>() ?? "não reconhecido");
+                PaymentStatus.Text = "✗ " + reason;
+            }
+        }
+        catch (Exception ex) { PaymentStatus.Text = "✗ erro: " + ex.Message; }
+        finally { PaymentSendBtn.IsEnabled = true; }
+    }
+
     // ================= TIMELINE EDITOR (keyframes + scrub) =================
     private bool _timelineOpen;
     private double _previewT;                    // tempo mostrado no canvas (scrub)
@@ -924,7 +1087,7 @@ public partial class MainWindow : Window
                 // SÓ os pensamentos do Claude aparecem. Ações/tools ficam escondidas atrás do spinner.
                 case "text": AppendChat("", data); break;
                 case "tool": case "tool_result": case "meta": break;   // silenciado — o spinner mostra o progresso
-                case "nocredits": AppendChat("", "Sem créditos disponíveis."); break;
+                case "nocredits": AppendChat("", "Sem créditos — abre ◆ para recarregar."); OpenPayment(); break;
                 case "error": AppendChat("✗", data); break;
                 case "usage":
                 {

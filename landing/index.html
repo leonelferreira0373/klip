@@ -111,6 +111,11 @@
           display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px }
   footer a{ color:var(--brand-ink); font-weight:600 }
 
+  .code{ background:#F4F3F1; border:1px solid var(--line); border-radius:10px; padding:12px 14px; font:12.5px/1.5 ui-monospace,Consolas,monospace; color:#3A3A38; white-space:pre-wrap; word-break:break-word; cursor:copy; margin:0; position:relative; transition:border-color .18s var(--ease) }
+  .code:hover{ border-color:var(--brand) }
+  .code.copied::after{ content:"copiado ✓"; position:absolute; top:7px; right:10px; font-size:10.5px; color:var(--brand-ink); font-weight:600; font-family:'Manrope',sans-serif }
+  .vrow{ padding:16px 18px; background:var(--card); border:1px solid var(--line); border-radius:12px; margin-bottom:10px }
+  .vrow code{ font:11.5px/1.4 ui-monospace,Consolas,monospace; color:var(--brand-ink); word-break:break-all }
   [data-reveal]{ opacity:0; transform:translateY(18px); transition:opacity .6s var(--ease), transform .6s var(--ease) }
   [data-reveal].in{ opacity:1; transform:none }
 
@@ -207,6 +212,28 @@
     <p class="note" data-reveal data-pt="Cada comprovativo é verificado pela assinatura digital EMIS. Sem cartões, sem intermediários." data-en="Every receipt is verified by its EMIS digital signature. No cards, no middlemen.">Cada comprovativo é verificado pela assinatura digital EMIS. Sem cartões, sem intermediários.</p>
   </section>
 
+  <section id="integrations" class="wrap block">
+    <h2 class="h2" data-reveal data-pt="Integra o KLIP em qualquer coisa" data-en="Integrate KLIP into anything">Integra o KLIP em qualquer coisa</h2>
+    <p class="lead" data-reveal data-pt="O mesmo .exe é editor E bridge. Conduz por MCP, CLI, HTTP ou a tua própria chave. Copia e cola." data-en="The same .exe is editor AND bridge. Drive it via MCP, CLI, HTTP or your own key. Copy and paste.">O mesmo .exe é editor E bridge. Conduz por MCP, CLI, HTTP ou a tua própria chave. Copia e cola.</p>
+    <div class="grid" style="margin-top:2rem;">
+      <div class="feat" data-reveal><h3>MCP</h3><p style="margin-bottom:10px;" data-pt="O .exe fala MCP (Claude Desktop / Code):" data-en="The .exe speaks MCP (Claude Desktop / Code):">O .exe fala MCP (Claude Desktop / Code):</p><pre class="code" data-copy>"klip": { "command": "KLIP Animator.exe", "args": ["--mcp-stdio"] }</pre></div>
+      <div class="feat" data-reveal><h3>HTTP bus</h3><p style="margin-bottom:10px;" data-pt="Porta em %TEMP%\klip_mcp.json:" data-en="Port in %TEMP%\klip_mcp.json:">Porta em %TEMP%\klip_mcp.json:</p><pre class="code" data-copy>curl -X POST http://127.0.0.1:PORT/call \
+ -d '{"action":"insert_shape","params":{"shape":"squircle","fill":"#6D5EF6"}}'</pre></div>
+      <div class="feat" data-reveal><h3>BYOK</h3><p style="margin-bottom:10px;" data-pt="A tua chave Anthropic, local:" data-en="Your Anthropic key, local:">A tua chave Anthropic, local:</p><pre class="code" data-copy>%APPDATA%\Klip\ai.json
+{ "api_key": "sk-ant-..." }</pre></div>
+      <div class="feat" data-reveal><h3>CLI · SDK</h3><p style="margin-bottom:10px;" data-pt="Claude Code embutido; bus = HTTP em qualquer linguagem:" data-en="Claude Code built-in; bus = HTTP in any language:">Claude Code embutido; bus = HTTP em qualquer linguagem:</p><pre class="code" data-copy>fetch(`http://127.0.0.1:${port}/manifest`).then(r=>r.json())</pre></div>
+    </div>
+    <div style="text-align:center;margin-top:2rem;">
+      <a href="/llms.txt" class="btn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span data-pt="Copiar guia para LLM (llms.txt)" data-en="Copy LLM guide (llms.txt)">Copiar guia para LLM (llms.txt)</span></a>
+    </div>
+  </section>
+
+  <section id="versions" class="wrap block">
+    <h2 class="h2" data-reveal data-pt="Versões e verificação" data-en="Versions and verification">Versões e verificação</h2>
+    <p class="lead" data-reveal data-pt="Confirma que o teu .exe é o oficial: o MD5 abaixo tem de bater com o teu ficheiro." data-en="Confirm your .exe is official: the MD5 below must match your file.">Confirma que o teu .exe é o oficial: o MD5 abaixo tem de bater com o teu ficheiro.</p>
+    <div id="versionList" style="max-width:640px;margin:2rem auto 0;"></div>
+  </section>
+
   <section id="download" class="wrap block">
     <div class="download" data-reveal>
       <h2 data-pt="Pronto a usar. Um único ficheiro." data-en="Ready to use. A single file.">Pronto a usar. Um único ficheiro.</h2>
@@ -220,8 +247,15 @@
 </main>
 
 <footer class="wrap">
-  <div>© <span id="yr">2026</span> Ferreira Korp · KLIP Animator</div>
-  <div><a id="src" href="#" data-pt="Código no GitHub" data-en="Source on GitHub">Código no GitHub</a> · <span data-pt="Feito em Angola" data-en="Made in Angola">Feito em Angola</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
+    <a id="src" href="#">GitHub</a>
+    <a href="#integrations" data-pt="Integrações" data-en="Integrations">Integrações</a>
+    <a href="#versions" data-pt="Versões · MD5" data-en="Versions · MD5">Versões · MD5</a>
+    <a href="/llms.txt">llms.txt</a>
+    <a href="/terms" data-pt="Termos" data-en="Terms">Termos</a>
+    <a href="/privacy" data-pt="Privacidade" data-en="Privacy">Privacidade</a>
+  </div>
+  <div>© <span id="yr">2026</span> KLIP Animator · Ferreira Korp · <span data-pt="Feito em Angola" data-en="Made in Angola">Feito em Angola</span></div>
 </footer>
 
 <script>
@@ -258,6 +292,25 @@
   } else {
     document.querySelectorAll("[data-reveal]").forEach(function(el){ el.classList.add("in"); });
   }
+
+  document.querySelectorAll("[data-copy]").forEach(function(el){
+    el.addEventListener("click", function(){
+      navigator.clipboard.writeText(el.textContent.trim()).then(function(){
+        el.classList.add("copied"); setTimeout(function(){ el.classList.remove("copied"); }, 1600);
+      });
+    });
+  });
+
+  fetch("/version.json").then(function(r){ return r.json(); }).then(function(v){
+    var host = document.getElementById("versionList"); if(!host) return;
+    (v.history || []).forEach(function(h){
+      var d = document.createElement("div"); d.className = "vrow";
+      d.innerHTML = '<div style="font-weight:700;">v' + h.version + ' <span style="color:var(--ink-3);font-weight:500;">· ' + h.date + '</span></div>' +
+        '<div style="font-size:13.5px;color:var(--ink-2);margin:4px 0 8px;">' + (h.notes || "") + '</div>' +
+        '<div style="font-size:11.5px;color:var(--ink-3);">MD5: <code>' + (h.md5 || "—") + '</code></div>';
+      host.appendChild(d);
+    });
+  }).catch(function(){});
 </script>
 </body>
 </html>

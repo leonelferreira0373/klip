@@ -117,6 +117,21 @@
             <Setter Property="Background" Value="#E0245E"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
+        <Style Selector="Button.plan">
+            <Setter Property="Background" Value="#F7F7F5"/>
+            <Setter Property="BorderBrush" Value="#F7F7F5"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="CornerRadius" Value="11"/>
+            <Setter Property="Padding" Value="10,12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Button.plan.sel">
+            <Setter Property="Background" Value="#EEEDFE"/>
+            <Setter Property="BorderBrush" Value="#6D5EF6"/>
+        </Style>
+        <Style Selector="Button.plan:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EFEDFE"/>
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="38,*">
@@ -133,6 +148,8 @@
                      VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button x:Name="CreditsBtn" Classes="wbtn" Click="OnOpenPayment" Content="◆"
+                  ToolTip.Tip="Créditos / pagamento (comprovativo)" Foreground="#6D5EF6" FontSize="13"/>
           <Button x:Name="BrowserBtn" Classes="wbtn" Click="OnToggleBrowser" Content="◍"
                   ToolTip.Tip="Browser embutido (pesquisa, download p/ a tela)" FontSize="15"/>
           <Button x:Name="NewCompBtn" Classes="wbtn" Click="OnNewComposition" Content="＋"
@@ -161,6 +178,15 @@
                                 <ItemsControl x:Name="HotkeysList"/>
                                 <TextBlock Text="Configuráveis via %APPDATA%\Klip\hotkeys.json"
                                            FontSize="10" Foreground="#B5B5B2" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                <Border Height="1" Background="#ECECEA" Margin="0,12"/>
+                                <CheckBox x:Name="ErrLogChk" Content="Enviar relatórios de erro semanais"
+                                          FontSize="11.5" Foreground="#3A3A38" IsCheckedChanged="OnErrLogToggle"/>
+                                <TextBlock Text="Ajuda a corrigir bugs — só logs técnicos, uma vez por semana. Desligado por defeito."
+                                           FontSize="10" Foreground="#B5B5B2" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <Button x:Name="UpdateBtn" IsVisible="False" Click="OnApplyUpdate" Content="⟳ Atualizar agora"
+                                        Margin="0,12,0,0" HorizontalAlignment="Stretch" Background="#6D5EF6" Foreground="White"
+                                        FontWeight="SemiBold" FontSize="12.5" MinHeight="38" CornerRadius="10"
+                                        HorizontalContentAlignment="Center"/>
                             </StackPanel>
                         </Flyout>
                     </Button.Flyout>
@@ -409,5 +435,57 @@
           </Grid>
         </Border>
     </Grid>
+
+    <!-- ============ PAYWALL / Créditos (modal) ============ -->
+    <Border x:Name="PaymentPanel" Grid.Row="1" Background="#66211F1A" IsVisible="False"
+            PointerPressed="OnPaymentBackdrop">
+      <Border Width="440" VerticalAlignment="Center" HorizontalAlignment="Center" Background="#FFFFFF"
+              CornerRadius="18" BorderBrush="#ECECEA" BorderThickness="1" Padding="0"
+              PointerPressed="OnPaymentCardPressed">
+        <StackPanel Margin="24">
+          <DockPanel Margin="0,0,0,4">
+            <TextBlock Text="Créditos de IA" FontSize="17" FontWeight="Bold" Foreground="#26251F"/>
+            <Button DockPanel.Dock="Right" Classes="mini" Click="OnClosePayment" Content="✕" HorizontalAlignment="Right"/>
+          </DockPanel>
+          <TextBlock x:Name="PaymentBalance" Text="Saldo: —" FontSize="13" Foreground="#6B6B68" Margin="0,0,0,14"/>
+
+          <TextBlock Text="Escolhe quanto queres carregar:" FontSize="12.5" Foreground="#6B6B68" Margin="0,0,0,8"/>
+          <Grid ColumnDefinitions="*,*,*" Margin="0,0,0,8">
+            <Button Grid.Column="0" x:Name="PlanA" Classes="plan" Click="OnSelectPlan" Tag="40000" Margin="0,0,4,0">
+              <StackPanel><TextBlock Text="Starter" FontSize="10.5" FontWeight="SemiBold" Foreground="#9A9A97"/>
+                <TextBlock Text="40 000 Kz" FontSize="15" FontWeight="Bold" Foreground="#26251F"/>
+                <TextBlock Text="~100–500 iter" FontSize="12" Foreground="#4A3FCB" FontWeight="SemiBold"/></StackPanel></Button>
+            <Button Grid.Column="1" x:Name="PlanB" Classes="plan" Click="OnSelectPlan" Tag="200000" Margin="2,0">
+              <StackPanel><TextBlock Text="Pro" FontSize="10.5" FontWeight="SemiBold" Foreground="#6D5EF6"/>
+                <TextBlock Text="200 000 Kz" FontSize="15" FontWeight="Bold" Foreground="#26251F"/>
+                <TextBlock Text="~500–2 500 iter" FontSize="12" Foreground="#4A3FCB" FontWeight="SemiBold"/></StackPanel></Button>
+            <Button Grid.Column="2" x:Name="PlanC" Classes="plan" Click="OnSelectPlan" Tag="400000" Margin="4,0,0,0">
+              <StackPanel><TextBlock Text="Studio" FontSize="10.5" FontWeight="SemiBold" Foreground="#9A9A97"/>
+                <TextBlock Text="400 000 Kz" FontSize="15" FontWeight="Bold" Foreground="#26251F"/>
+                <TextBlock Text="~1 000–5 000 iter" FontSize="12" Foreground="#4A3FCB" FontWeight="SemiBold"/></StackPanel></Button>
+          </Grid>
+          <TextBox x:Name="PlanCustom" Watermark="ou valor personalizado (≥ 40 000 Kz)" FontSize="12.5"
+                   Foreground="#26251F" CornerRadius="10" Margin="0,0,0,14" KeyDown="OnCustomAmountKey"/>
+
+          <TextBox x:Name="PaymentEmail" Watermark="o teu email (segue os créditos)" FontSize="12.5"
+                   Foreground="#26251F" CornerRadius="10" Margin="0,0,0,10"/>
+          <Button x:Name="PaymentReqBtn" Click="OnRequestPayment" HorizontalAlignment="Stretch"
+                  Background="#6D5EF6" Foreground="White" FontWeight="SemiBold" FontSize="14" MinHeight="46"
+                  CornerRadius="12" HorizontalContentAlignment="Center" Content="Pedir dados de pagamento"/>
+          <TextBlock Text="Recebes um email com o link (válido 15 min) para copiar o IBAN. Depois de pagares:"
+                     FontSize="11.5" Foreground="#9A9A97" TextWrapping="Wrap" Margin="0,10,0,8"/>
+          <Button x:Name="PaymentSendBtn" Click="OnPickComprovativo" HorizontalAlignment="Stretch"
+                  Background="#F4F4F2" BorderBrush="#E4E4E1" BorderThickness="1" Foreground="#26251F"
+                  FontWeight="SemiBold" FontSize="13.5" MinHeight="44" CornerRadius="12"
+                  HorizontalContentAlignment="Center" Content="Já paguei — enviar comprovativo (PDF)"/>
+          <TextBlock x:Name="PaymentStatus" Text="" FontSize="12" Foreground="#5F5E5A" TextWrapping="Wrap" Margin="0,12,0,0"/>
+          <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,10,0,0">
+            <TextBlock Text="Pagamentos, reembolsos e legal:" FontSize="11" Foreground="#9A9A97" VerticalAlignment="Center"/>
+            <HyperlinkButton Content="Termos" NavigateUri="https://klipstudio.vercel.app/terms" FontSize="11" Padding="4,0" Foreground="#4A3FCB"/>
+            <HyperlinkButton Content="Privacidade" NavigateUri="https://klipstudio.vercel.app/privacy" FontSize="11" Padding="4,0" Foreground="#4A3FCB"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
     </Grid>
 </Window>

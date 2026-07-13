@@ -1,0 +1,23 @@
+{
+  "latest": {
+    "version": "1.0.1",
+    "date": "2026-07-13",
+    "md5": "ed4ddb3e98078bd00fabb131c44fda67",
+    "notes": "Paywall v2 (comprovativo→créditos, planos, fatura PDF), emails KLIP, motor de expressões AE, browser+visão, voz→texto, auto-update, error-log opt-in.",
+    "url": "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "date": "2026-07-13",
+      "md5": "ed4ddb3e98078bd00fabb131c44fda67",
+      "notes": "Paywall v2 (comprovativo→créditos, planos, fatura PDF), emails KLIP, motor de expressões AE, browser+visão, voz→texto, auto-update, error-log opt-in."
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-07-13",
+      "md5": "pending",
+      "notes": "Primeira release pública — motor de expressões estilo After Effects, 3D real, browser embutido com visão da IA, voz→texto on-device, export 4K vetorial, paywall por comprovativo EMIS."
+    }
+  ]
+}

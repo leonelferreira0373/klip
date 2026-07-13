@@ -1,0 +1,51 @@
+# KLIP Animator — guia para LLMs / agentes
+
+KLIP Animator é um editor nativo de design e motion-graphics para Windows (C#/.NET 10, Avalonia + SkiaSharp),
+distribuído como um único `.exe`. É AI-first: TODA a edição passa por um command bus HTTP, por isso um LLM pode
+conduzir o editor com as mesmas ações que a UI usa. Cola este documento num LLM para ele saber controlar o KLIP.
+
+## Como o KLIP é conduzido (4 modalidades)
+
+1. **HTTP command bus (local)** — o app corre um servidor em `127.0.0.1:{porta}` (a porta está em
+   `%TEMP%\klip_mcp.json`). `GET /manifest` lista as ações; `POST /call {"action":"...","params":{...}}` executa.
+2. **MCP (Model Context Protocol)** — o MESMO `.exe` é bridge MCP: `KLIP Animator.exe --mcp-stdio` fala JSON-RPC
+   MCP no stdin/stdout e faz proxy para o editor vivo. Regista no teu cliente MCP (ex.: Claude Desktop / Claude Code).
+3. **BYOK** — usa a tua própria chave Anthropic (guardada localmente em `%APPDATA%\Klip\ai.json`), sem créditos.
+4. **Claude Code (CLI)** — o KLIP lança o `claude` como subprocesso e regista o bridge MCP automaticamente.
+
+## Modelo do documento
+
+Canvas 1000x700 por defeito. Coordenadas `x,y` são OFFSETS a partir do CENTRO (0,0 = centro). Cores `#RRGGBB`.
+Camadas têm transform (x, y, rotation, scale, opacity), fill/gradiente, stroke, trim-paths, âncora, parenting.
+Timeline com keyframes + expressões.
+
+## Vocabulário de ações (as mais usadas)
+
+- `get_state`, `list_items`, `list_anchors` — inspeciona o documento.
+- `insert_shape {shape:star|circle|rect|squircle, size, fill, x, y}`, `insert_text`, `insert_path {d, fill}`.
+- `set_transform {id, x, y, scale, rotation}`, `set_fill {id, fill, fill2, radial, angle}`, `set_stroke`.
+- `set_anchor`, `set_parent`, `insert_null` — rigs e parenting estilo AE.
+- `add_keyframe {id, prop:x|y|scale|rotation|opacity|trim_start|trim_end, time, value, ease, bez}`.
+- `set_expression {id, prop, kind:code, code:"..."}` — **JavaScript estilo After Effects**: `value`, `time`,
+  `wiggle(freq,amp)`, `valueAtTime(t)`, `loopOut()`, `loopIn()`, `linear(t,tMin,tMax,v1,v2)`,
+  `ease/easeIn/easeOut`, `clamp`, `random()`, `Math.*`. kind=spring|wiggle são presets rápidos.
+- 3D REAL: `set_3d {id, depth, bevel}`, `set_camera`, `camera_keyframe {prop:x|y|z|tx|ty|tz|fov, time, value}`.
+- `path_boolean {a, b, op:subtract|union|intersect|xor}`, `powerclip`, `set_grid`, `set_cmyk`.
+- `render_frame {path, t}` — renderiza um PNG e a IA VÊ-O (visão) para criticar antes de continuar.
+- `export_page`, `export_animation {path, resolution:1080|2k|4k}`, `export_svg`, `export_gif`, `export_lottie`, `export_cmyk`.
+- Browser + visão: `web_open`, `download_image`, `download_youtube`, `browser_capture` (a IA vê a página), `list_assets`.
+- Voz: `transcribe {path}` (Whisper on-device), `read_text`.
+
+## Regra de ouro para bons resultados
+
+Compõe em BEATS: (1) faz um passo pequeno → (2) `render_frame` e OLHA → (3) critica como um humano
+(equilíbrio, ligação visual, coerência) → (4) ajusta → repete. Nunca despejes ações às cegas.
+Estilo Apple = `set_expression kind=code` com springs/wiggle em toda a gente + 60fps + poucos keyframes.
+
+## Créditos de IA
+
+Sonnet, Haiku ou KLIP AI. Recarrega por Multicaixa dentro da app (comprovativo PDF verificado por assinatura EMIS).
+Ou usa BYOK com a tua chave Anthropic (custo direto, sem créditos).
+
+Repo (open-source, AGPL-3.0): https://github.com/leonelferreira0373/klip
+Download: https://github.com/leonelferreira0373/klip/releases/latest
