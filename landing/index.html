@@ -165,6 +165,7 @@
       <a href="#features" class="btn"><span data-pt="Ver o que faz" data-en="See what it does">Ver o que faz</span></a>
     </div>
     <small class="meta" data-pt="Windows 10/11 · .exe único · ~70 MB · sem dependências" data-en="Windows 10/11 · single .exe · ~70 MB · no dependencies">Windows 10/11 · .exe único · ~70 MB · sem dependências</small>
+    <div id="heroCustom" style="display:none;max-width:640px;margin:var(--s-4) auto 0;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 26px;"></div>
 
     <div class="stage" aria-hidden="true">
       <div class="ring"></div>
@@ -246,6 +247,16 @@
   </section>
 </main>
 
+<section class="wrap block" style="text-align:center;">
+  <h2 class="h2" data-reveal data-pt="Novidades do KLIP" data-en="KLIP updates">Novidades do KLIP</h2>
+  <p class="lead" data-reveal data-pt="Casos de uso, atualizações e dicas. Sem spam." data-en="Use cases, updates and tips. No spam.">Casos de uso, atualizações e dicas. Sem spam.</p>
+  <div data-reveal style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:var(--s-4);max-width:460px;margin-left:auto;margin-right:auto;">
+    <input id="subEmail" type="email" placeholder="o-teu@email.com" style="flex:1;min-width:220px;min-height:48px;padding:0 16px;border:1px solid var(--line-2);border-radius:12px;font-family:inherit;font-size:15px;color:var(--ink);" />
+    <button id="subBtn" class="btn btn-primary" onclick="subscribe()"><span data-pt="Subscrever" data-en="Subscribe">Subscrever</span></button>
+  </div>
+  <div id="subMsg" style="font-size:13px;color:var(--ink-3);margin-top:12px;"></div>
+</section>
+
 <footer class="wrap">
   <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
     <a id="src" href="#">GitHub</a>
@@ -314,6 +325,21 @@
       host.appendChild(d);
     });
   }).catch(function(){});
+
+  var WK = "https://ferreirakorp-licensing.leonelferreira0373.workers.dev";
+  fetch(WK + "/klip/hero", { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){
+    if(d && d.hero){ var el = document.getElementById("heroCustom"); el.innerHTML = d.hero; el.style.display = "block"; }
+  }).catch(function(){});
+  function subscribe(){
+    var em = document.getElementById("subEmail").value.trim(), msg = document.getElementById("subMsg");
+    if(!em || em.indexOf("@") < 1){ msg.textContent = "Escreve um email válido."; return; }
+    fetch(WK + "/klip/subscribe", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:em }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        msg.textContent = d.ok ? "Subscrito ✓ obrigado!" : (d.error || "erro");
+        if(d.ok) document.getElementById("subEmail").value = "";
+      }).catch(function(){ msg.textContent = "erro de rede"; });
+  }
+  window.subscribe = subscribe;
 </script>
 </body>
 </html>

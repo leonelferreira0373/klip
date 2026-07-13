@@ -1,9 +1,25 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/terms", "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/terms" },
-    { "source": "/privacy", "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/privacy" },
-    { "source": "/whitepaper", "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/whitepaper" },
-    { "source": "/legal", "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/legal" }
+    {
+      "source": "/terms",
+      "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/terms"
+    },
+    {
+      "source": "/privacy",
+      "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/privacy"
+    },
+    {
+      "source": "/whitepaper",
+      "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/whitepaper"
+    },
+    {
+      "source": "/legal",
+      "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/legal"
+    },
+    {
+      "source": "/admin",
+      "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/admin"
+    }
   ]
 }
