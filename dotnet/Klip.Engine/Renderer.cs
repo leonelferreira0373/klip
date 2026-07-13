@@ -51,11 +51,17 @@ public sealed class Renderer
         // índice nome→camada p/ PARENTING (mais recente ganha em nomes repetidos)
         _byName = new Dictionary<string, Layer>(comp.Layers.Count);
         foreach (var l in comp.Layers) if (!string.IsNullOrEmpty(l.Name)) _byName[l.Name] = l;
+        // Fase 7 — índice por Id (matte resolve Id→Name) + fontes de matte consumidas (não se auto-desenham).
+        _byId = new Dictionary<string, Layer>(comp.Layers.Count);
+        foreach (var l in comp.Layers) if (!string.IsNullOrEmpty(l.Id)) _byId[l.Id!] = l;
+        _consumedMattes = new System.Collections.Generic.HashSet<Layer>(System.Collections.Generic.ReferenceEqualityComparer.Instance);
+        foreach (var l in comp.Layers) { var ms = ResolveMatte(l); if (ms is not null) _consumedMattes.Add(ms); }
 
         float cx = comp.Width / 2f, cy = comp.Height / 2f;
         foreach (var layer in comp.Layers)
         {
             if (layer.Controller) continue;   // NULL object: só transform (não desenha)
+            if (_consumedMattes is not null && _consumedMattes.Contains(layer)) continue;  // fonte de matte: consumida, não se auto-desenha
             // camada 3D REAL → renderiza no compositor híbrido (câmara do comp) e compõe aqui
             if (layer.ThreeD is not null)
             {
@@ -73,14 +79,21 @@ public sealed class Renderer
                 }
                 // sem GPU → cai no desenho 2D normal
             }
-            DrawLayer(canvas, layer, t, cx, cy);
+            var matte = ResolveMatte(layer);
+            if (matte is not null) { DrawMatted(canvas, layer, matte, t, cx, cy, comp.Fps); continue; }
+            DrawLayer(canvas, layer, t, cx, cy, comp.Fps);
         }
     }
 
     [ThreadStatic] private static Dictionary<string, Layer>? _byName;
+    [ThreadStatic] private static Dictionary<string, Layer>? _byId;
+    [ThreadStatic] private static System.Collections.Generic.HashSet<Layer>? _consumedMattes;
+    [ThreadStatic] private static System.Collections.Generic.List<Particle>? _particleBuf;   // Fase 10 (reutilizado por frame)
 
-    private static void DrawLayer(SKCanvas canvas, Layer layer, double t, float cx, float cy)
+    private static void DrawLayer(SKCanvas canvas, Layer layer, double t, float cx, float cy, double fps)
     {
+        // Fase 10 — EMISSOR: a camada é inteiramente representada pelas partículas (não desenha a pose base)
+        if (layer.Particles is ParticleSpec ps) { DrawParticles(canvas, layer, ps, t, cx, cy); return; }
         // trail: fading echoes at earlier times, drawn behind the current pose
         if (layer.Trail is { Count: > 0 } tr)
         {
@@ -91,6 +104,14 @@ public sealed class Renderer
                 double fade = tr.FadeTo * (1.0 - (double)(i - 1) / tr.Count); // older = fainter
                 DrawOne(canvas, layer, tt, cx, cy, opacityMul: fade, extraBlur: tr.ExtraBlur, colorOverride: tr.ColorArgb);
             }
+        }
+        // Fase 7 — MOTION-BLUR real: amostra o obturador ao longo do MOVIMENTO (não gaussiano estático).
+        double shutterFrames = layer.MotionBlur?.Eval(t) ?? 0.0;
+        if (shutterFrames > 1e-4 && fps > 0)
+        {
+            int K = Math.Clamp(layer.MotionBlurSamples, 2, 32);
+            DrawMotionBlur(canvas, layer, t, cx, cy, K, shutterFrames / fps);
+            return;
         }
         DrawOne(canvas, layer, t, cx, cy, opacityMul: 1.0, extraBlur: 0, colorOverride: null);
     }
@@ -105,9 +126,34 @@ public sealed class Renderer
         float skx = (float)(l.SkewX?.Eval(t) ?? 0);
         var m = SKMatrix.CreateTranslation(px, py);
         if (MathF.Abs(rot) > 0.0001f) m = m.PreConcat(SKMatrix.CreateRotationDegrees(rot));
+        // rotação 3D REAL de camada plana (tilt em X/Y com perspetiva) via SK3dView — pivô no centro (0,0)
+        float rx = (float)(l.RotationX?.Eval(t) ?? 0), ry = (float)(l.RotationY?.Eval(t) ?? 0);
+        if (MathF.Abs(rx) > 0.0001f || MathF.Abs(ry) > 0.0001f)
+            m = m.PreConcat(Perspective3D(rx, ry));
         if (MathF.Abs(skx) > 0.0001f) m = m.PreConcat(SKMatrix.CreateSkew(skx, 0));
         if (MathF.Abs(sx - 1) > 0.0001f || MathF.Abs(sy - 1) > 0.0001f) m = m.PreConcat(SKMatrix.CreateScale(sx, sy));
         if (l.AnchorX != 0 || l.AnchorY != 0) m = m.PreConcat(SKMatrix.CreateTranslation(-(float)l.AnchorX, -(float)l.AnchorY));
+        return m;
+    }
+
+    /// <summary>Rotação 3D de uma camada PLANA (tilt X/Y) projetada com PERSPETIVA → SKMatrix 3x3.
+    /// Derivada à mão (rotação do plano z=0 + divisão perspetiva, câmara a d px) — independente da versão do Skia.
+    /// rotY: X=x·cosθ, W=1−x·sinθ/d. rotX: Y=y·cosφ, W=1−y·sinφ/d.</summary>
+    private static SKMatrix Perspective3D(float rxDeg, float ryDeg)
+    {
+        const float d = 800f;                       // distância da câmara (px) — perspetiva suave
+        float k = MathF.PI / 180f;
+        var m = SKMatrix.Identity;
+        if (MathF.Abs(ryDeg) > 0.0001f)
+        {
+            float c = MathF.Cos(ryDeg * k), s = MathF.Sin(ryDeg * k);
+            m = m.PreConcat(new SKMatrix { ScaleX = c, ScaleY = 1, Persp2 = 1, Persp0 = -s / d });
+        }
+        if (MathF.Abs(rxDeg) > 0.0001f)
+        {
+            float c = MathF.Cos(rxDeg * k), s = MathF.Sin(rxDeg * k);
+            m = m.PreConcat(new SKMatrix { ScaleX = 1, ScaleY = c, Persp2 = 1, Persp1 = -s / d });
+        }
         return m;
     }
 
@@ -137,7 +183,7 @@ public sealed class Renderer
     }
 
     private static void DrawOne(SKCanvas canvas, Layer layer, double t, float cx, float cy,
-                                double opacityMul, double extraBlur, uint? colorOverride)
+                                double opacityMul, double extraBlur, uint? colorOverride, SKMatrix? worldOverride = null)
     {
         using var shape0 = EvalMorph(layer.Shape, t);
         if (shape0 is null) return;
@@ -154,7 +200,7 @@ public sealed class Renderer
         double op = Math.Clamp((layer.Opacity?.Eval(t) ?? 1.0) * opacityMul, 0.0, 1.0);
         if (op <= 0.001) return;
 
-        uint fill = colorOverride ?? layer.FillArgb;
+        uint fill = colorOverride ?? layer.FillColor?.Eval(t) ?? layer.FillArgb;   // cor animável manda; uint = fallback
         byte a = (byte)(((fill >> 24) & 0xFF) * op);   // alpha própria da cor × opacidade da camada
         var bounds = shape.Bounds;
 
@@ -165,8 +211,8 @@ public sealed class Renderer
             using var cp = SKPath.ParseSvgPathData(clipD);
             if (cp is not null) canvas.ClipPath(cp, SKClipOperation.Intersect, antialias: true);
         }
-        // transform de MUNDO (posição/rotação/escala/âncora + cadeia de PARENTING)
-        var world = WorldMatrix(layer, t);
+        // transform de MUNDO (posição/rotação/escala/âncora + cadeia de PARENTING); worldOverride = partícula
+        var world = worldOverride ?? WorldMatrix(layer, t);
         canvas.Concat(ref world);
 
         // compose depth (drop shadow) + blur into one image filter
@@ -176,6 +222,20 @@ public sealed class Renderer
             float sh = MathF.Max(6f, (float)bounds.Height * 0.06f);
             var ds = SKImageFilter.CreateDropShadow(0, sh, sh, sh, new SKColor(0, 0, 0, (byte)(70 * op)));
             filter = filter is null ? ds : SKImageFilter.CreateCompose(ds, filter);
+        }
+        // Fase 7 — DROP-SHADOW premium keyframável (offset/blur/opacidade/cor), atrás da forma, na mesma cadeia.
+        if (layer.DropShadow is ShadowSpec dsp && colorOverride is null)
+        {
+            float dx = (float)(dsp.Dx?.Eval(t) ?? 0), dy = (float)(dsp.Dy?.Eval(t) ?? 0);
+            float sb = (float)Math.Max(0, dsp.Blur?.Eval(t) ?? 0);
+            double so = Math.Clamp(dsp.Opacity?.Eval(t) ?? 1, 0, 1) * op;
+            uint scol = dsp.Color?.Eval(t) ?? 0xFF000000u;
+            byte salpha = (byte)Math.Clamp(((scol >> 24) & 0xFF) / 255.0 * so * 255.0, 0, 255);
+            if (salpha > 0 && (MathF.Abs(dx) > 0.001f || MathF.Abs(dy) > 0.001f || sb > 0.001f))
+            {
+                var ds2 = SKImageFilter.CreateDropShadow(dx, dy, sb, sb, ((SKColor)scol).WithAlpha(salpha));
+                filter = filter is null ? ds2 : SKImageFilter.CreateCompose(ds2, filter);
+            }
         }
 
         // camada RIVE: runtime C# custom desenha o frame animado no tempo t (caixa RiveW×RiveH centrada)
@@ -242,7 +302,7 @@ public sealed class Renderer
         if (layer.FillArgb2 is uint f2 && colorOverride is null)
         {
             var c1 = ((SKColor)fill).WithAlpha(a);
-            var c2 = ((SKColor)f2).WithAlpha(a);
+            var c2 = ((SKColor)(layer.FillColor2?.Eval(t) ?? f2)).WithAlpha(a);   // 2ª cor animável (best-effort)
             // controlos profundos: direção (ângulo), midpoint e spread ("velocidade" da transição)
             float mid = (float)Math.Clamp(layer.GradMid, 0.0, 1.0);
             float half = (float)Math.Clamp(layer.GradSpread, 0.02, 1.0) / 2f;
@@ -274,7 +334,8 @@ public sealed class Renderer
         shader?.Dispose();
 
         // stroke (contorno) — line-work de motion graphics
-        if (layer.StrokeArgb is uint sc && layer.StrokeWidth > 0 && colorOverride is null)
+        uint? scOpt = layer.StrokeColor is { } stc ? stc.Eval(t) : layer.StrokeArgb;   // cor de stroke animável; uint = fallback
+        if (scOpt is uint sc && layer.StrokeWidth > 0 && colorOverride is null)
         {
             byte sa = (byte)(((sc >> 24) & 0xFF) * op);
             if (sa > 0)
@@ -294,6 +355,22 @@ public sealed class Renderer
         }
         filter?.Dispose();
 
+        // Fase 7 — GLOW: bloom ADITIVO (SKBlendMode.Plus) por cima → halo à volta + brilho no bordo.
+        if (layer.Glow is GlowSpec gl && colorOverride is null && op > 0.01)
+        {
+            float gr = (float)Math.Max(0, gl.Radius?.Eval(t) ?? 0);
+            double gi = Math.Max(0, gl.Intensity?.Eval(t) ?? 1.0);
+            if (gr > 0.01 && gi > 0.001)
+            {
+                uint gcol = gl.Color?.Eval(t) ?? fill;
+                byte ga = (byte)Math.Clamp(((gcol >> 24) & 0xFF) / 255.0 * Math.Min(gi, 1.0) * op * 255.0, 0, 255);
+                using var gblur = SKImageFilter.CreateBlur(gr, gr);
+                using var gp = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill, Color = ((SKColor)gcol).WithAlpha(ga), ImageFilter = gblur, BlendMode = SKBlendMode.Plus };
+                int passes = (int)Math.Clamp(Math.Ceiling(gi), 1, 4);   // intensidade>1 → mais luz somada
+                for (int p = 0; p < passes; p++) canvas.DrawPath(shape, gp);
+            }
+        }
+
         // glossy specular: a soft white highlight in the upper third
         if (layer.SpecularStrength > 0 && colorOverride is null && op > 0.01)
         {
@@ -310,6 +387,89 @@ public sealed class Renderer
         }
 
         canvas.RestoreToCount(save);
+    }
+
+    // ---- Fase 7 — TRACK-MATTE (uma camada-FONTE define o alpha/luma de outra) -------------------------
+    // Matrizes de cor 4x5 (row-major, entradas normalizadas 0..1): A' = luma Rec709 (e 1−luma no invertido).
+    private static readonly SKColorFilter LumaToAlpha = SKColorFilter.CreateColorMatrix(new float[]
+    { 0,0,0,0,0,  0,0,0,0,0,  0,0,0,0,0,  0.2126f,0.7152f,0.0722f,0,0 });
+    private static readonly SKColorFilter InvLumaToAlpha = SKColorFilter.CreateColorMatrix(new float[]
+    { 0,0,0,0,0,  0,0,0,0,0,  0,0,0,0,0,  -0.2126f,-0.7152f,-0.0722f,0,1 });
+
+    /// <summary>Resolve a camada-FONTE do matte do alvo (Id→Name, regra estável). Null se sem matte/auto-ref.</summary>
+    private static Layer? ResolveMatte(Layer target)
+    {
+        if (target.Matte == MatteMode.None || string.IsNullOrEmpty(target.MatteSourceId)) return null;
+        Layer? src = null;
+        if (_byId is not null && _byId.TryGetValue(target.MatteSourceId!, out var byId)) src = byId;
+        else if (_byName is not null && _byName.TryGetValue(target.MatteSourceId!, out var byName)) src = byName;
+        if (src is null || ReferenceEquals(src, target)) return null;
+        return src;
+    }
+
+    /// <summary>Desenha o ALVO isolado e recorta-o pelo alpha/luma da FONTE (DstIn/DstOut estilo AE).</summary>
+    private static void DrawMatted(SKCanvas canvas, Layer layer, Layer matte, double t, float cx, float cy, double fps)
+    {
+        int outer = canvas.SaveLayer();                 // offscreen full-canvas → DstIn não apaga o fundo
+        DrawLayer(canvas, layer, t, cx, cy, fps);       // alvo completo (trail/motion-blur/glow/sombra dentro do isolamento)
+        using var mp = new SKPaint { IsAntialias = true };
+        switch (layer.Matte)
+        {
+            case MatteMode.AlphaNormal: mp.BlendMode = SKBlendMode.DstIn; break;
+            case MatteMode.AlphaInvert: mp.BlendMode = SKBlendMode.DstOut; break;
+            case MatteMode.LumaNormal:  mp.BlendMode = SKBlendMode.DstIn; mp.ColorFilter = LumaToAlpha; break;
+            case MatteMode.LumaInvert:  mp.BlendMode = SKBlendMode.DstIn; mp.ColorFilter = InvLumaToAlpha; break;
+        }
+        canvas.SaveLayer(mp);
+        DrawOne(canvas, matte, t, cx, cy, 1.0, 0, null);   // fonte como STENCIL (sem motion-blur/trail)
+        canvas.Restore();
+        canvas.RestoreToCount(outer);
+    }
+
+    /// <summary>Fase 7 — MOTION-BLUR real: média de K poses ao longo do obturador → borrão DIRECIONAL
+    /// (segue posição/rotação/escala reais). Acumulador Plus a 1/K = média-caixa; nunca gaussiano estático.</summary>
+    private static void DrawMotionBlur(SKCanvas canvas, Layer layer, double t, float cx, float cy, int K, double shutterSecs)
+    {
+        int outer = canvas.SaveLayer();                 // acumulador ISOLADO (transparente) → Plus só soma as sub-amostras
+        using var sub = new SKPaint
+        {
+            BlendMode = SKBlendMode.Plus,
+            Color = new SKColor(255, 255, 255, (byte)Math.Clamp((int)Math.Round(255.0 / K), 1, 255)),
+        };
+        for (int k = 0; k < K; k++)
+        {
+            double frac = (k + 0.5) / K - 0.5;          // ponto médio de cada fatia → simétrico (média dos offsets = 0)
+            double tk = t + shutterSecs * frac;
+            if (tk < 0) tk = 0;
+            canvas.SaveLayer(sub);
+            DrawOne(canvas, layer, tk, cx, cy, 1.0, 0, null);
+            canvas.Restore();
+        }
+        canvas.RestoreToCount(outer);
+    }
+
+    /// <summary>Fase 10 — EMISSOR: cada partícula viva desenha o Shape da camada (sprite) com transform/opacidade/
+    /// cor próprios, REUTILIZANDO DrawOne (colorOverride + worldOverride). Determinístico (ParticleSim puro).</summary>
+    private static void DrawParticles(SKCanvas canvas, Layer layer, ParticleSpec ps, double t, float cx, float cy)
+    {
+        var buf = _particleBuf ??= new System.Collections.Generic.List<Particle>(512);
+        uint fill = layer.FillColor?.Eval(t) ?? layer.FillArgb;
+        ParticleSim.Emit(ps, t, buf, fill);
+        if (buf.Count == 0) return;
+        var emitter = WorldMatrix(layer, t);   // base do emissor (pos/rot/escala/parenting) — animável por frame
+        const float margin = 200f;
+        foreach (var p in buf)
+        {
+            if (p.Opacity <= 0.001 || p.Scale <= 0.0001) continue;
+            var m = emitter;
+            m = m.PreConcat(SKMatrix.CreateTranslation((float)p.OffsetX, (float)p.OffsetY));
+            if (Math.Abs(p.RotationDeg) > 0.001) m = m.PreConcat(SKMatrix.CreateRotationDegrees((float)p.RotationDeg));
+            if (Math.Abs(p.Scale - 1.0) > 0.001) m = m.PreConcat(SKMatrix.CreateScale((float)p.Scale, (float)p.Scale));
+            var c0 = m.MapPoint(0, 0);                       // DrawOne faz Translate(cx,cy) + Concat(m)
+            float px = cx + c0.X, py = cy + c0.Y;
+            if (px < -margin || px > cx * 2 + margin || py < -margin || py > cy * 2 + margin) continue;   // culling
+            DrawOne(canvas, layer, t, cx, cy, opacityMul: p.Opacity, extraBlur: 0, colorOverride: p.Color, worldOverride: m);
+        }
     }
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SKBitmap?> _imgCache = new();

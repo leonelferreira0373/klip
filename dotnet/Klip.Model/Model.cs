@@ -109,7 +109,10 @@ public sealed record Track(IReadOnlyList<Keyframe> Keys, TrackExpr? Expr = null)
         double s = f * f * (3 - 2 * f);
         return a + (b - a) * s;
     }
-    private static double Hash(int n)
+    private static double Hash(int n) => HashInt(n);
+
+    /// <summary>Bit-mix determinístico 1-D → [-1,1). Partilhado com o emissor de partículas (Fase 10).</summary>
+    internal static double HashInt(int n)
     {
         n = (n << 13) ^ n;
         return 1.0 - ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0;
@@ -133,6 +136,63 @@ public sealed record Track(IReadOnlyList<Keyframe> Keys, TrackExpr? Expr = null)
 
     public static Track Const(double v) => new(new[] { new Keyframe(0, v) });
     public static Track Of(params Keyframe[] keys) => new(keys);
+
+    /// <summary>CSS-style cubic-bezier exposto (usado também pelo ColorTrack). Resolve t p/ x=u e devolve y.</summary>
+    internal static double CubicBezierPublic(double u, double x1, double y1, double x2, double y2)
+        => CubicBezier(u, x1, y1, x2, y2);
+}
+
+/// <summary>Tipo do canal endereçado no sistema de propriedades uniforme.</summary>
+public enum ChannelKind { Scalar, Color }
+
+/// <summary>Track-matte estilo AE: uma camada-FONTE define o alpha/luma de outra. Normal e invertido.</summary>
+public enum MatteMode { None, AlphaNormal, AlphaInvert, LumaNormal, LumaInvert }
+
+/// <summary>União etiquetada p/ get/set uniforme de qualquer propriedade (número OU cor 0xAARRGGBB) sem boxing.</summary>
+public readonly record struct PropValue(ChannelKind Kind, double Scalar, uint Argb)
+{
+    public static PropValue Of(double v) => new(ChannelKind.Scalar, v, 0);
+    public static PropValue Of(uint argb) => new(ChannelKind.Color, 0, argb);
+}
+
+/// <summary>Keyframe de COR atómico (a cor inteira 0xAARRGGBB num tempo) — espelho de Keyframe.</summary>
+public sealed record ColorKey(double Time, uint Argb, Easing Ease = Easing.Linear, double[]? Bez = null);
+
+/// <summary>Canal de COR animável — primitivo espelho do Track escalar. Interpola em sRGB-linear premult.
+/// Static = 1 key. Wiggle: reservado; Code: rejeitado na API (Fase 3).</summary>
+public sealed record ColorTrack(IReadOnlyList<ColorKey> Keys, TrackExpr? Expr = null)
+{
+    /// <summary>Hook reservado p/ expressões-código de cor (Fase 3). Fica null.</summary>
+    public static Func<string, ColorTrack, double, uint>? CodeEval;
+
+    public uint Eval(double t)
+    {
+        if (Keys.Count == 0) return 0;
+        if (t <= Keys[0].Time) return Keys[0].Argb;
+        var last = Keys[^1];
+        if (t >= last.Time) return last.Argb;
+        bool spring = Expr is { Kind: ExprKind.Spring };
+        for (int i = 0; i < Keys.Count - 1; i++)
+        {
+            var a = Keys[i];
+            var b = Keys[i + 1];
+            if (t >= a.Time && t <= b.Time)
+            {
+                double span = b.Time - a.Time;
+                double u = span <= 0 ? 0 : (t - a.Time) / span;
+                double e = spring
+                    ? Track.SpringEase(u, Expr!.P1, Expr.P2)
+                    : a.Bez is { Length: 4 } bz
+                        ? Track.CubicBezierPublic(u, bz[0], bz[1], bz[2], bz[3])
+                        : Easings.Apply(a.Ease, u);
+                return ColorMath.Lerp(a.Argb, b.Argb, Math.Clamp(e, 0.0, 1.0));   // Spring pode passar de 1 → clamp
+            }
+        }
+        return last.Argb;
+    }
+
+    public static ColorTrack Const(uint argb) => new(new[] { new ColorKey(0, argb) });
+    public static ColorTrack Of(params ColorKey[] keys) => new(keys);
 }
 
 /// <summary>A shape keyframe: an SVG path "d" (centered at local 0,0) at <paramref name="Time"/>.</summary>
@@ -147,6 +207,15 @@ public sealed record MorphTrack(IReadOnlyList<MorphKey> Keys)
 /// <summary>Motion trail: N fading echoes of the layer rendered at earlier times.</summary>
 public sealed record TrailSpec(int Count, double SpacingSeconds, double FadeTo,
                                double ExtraBlur = 0, uint? ColorArgb = null);
+
+/// <summary>Fase 7 — GLOW (bloom aditivo à volta da forma). Radius=sigma do halo (px), Intensity=multiplicador
+/// de luz (1=base; &gt;1 acumula passes), Color=tinta (null → cor de fill da camada). Cada param keyframável.</summary>
+public sealed record GlowSpec(Track? Radius = null, Track? Intensity = null, ColorTrack? Color = null);
+
+/// <summary>Fase 7 — DROP-SHADOW premium keyframável (separado do bool Shadow legado de grounding barato).
+/// Dx/Dy=offset (px), Blur=sigma (px), Opacity=0..1, Color=cor da sombra (null → preto opaco).</summary>
+public sealed record ShadowSpec(Track? Dx = null, Track? Dy = null, Track? Blur = null,
+                                Track? Opacity = null, ColorTrack? Color = null);
 
 /// <summary>
 /// One animated layer. Shapes are authored at local (0,0); the transform tracks place them.
@@ -187,7 +256,27 @@ public sealed record Layer(
     double LottieW = 400, double LottieH = 400,   // caixa de render da camada Lottie
     double AnchorX = 0, double AnchorY = 0,       // ponto-âncora (pivô de rotação/escala), coords locais
     string? Parent = null,       // PARENTING: nome da camada-mãe (transform relativo à mãe)
-    bool Controller = false);    // NULL object: só transform (controlador), não desenha
+    bool Controller = false,     // NULL object: só transform (controlador), não desenha
+    // ---- Fase 1: sistema de propriedades uniforme (aditivo, opcional no fim → zero call-sites mudam) ----
+    string? Id = null,           // ID estável endereçável (resolve Id→Name); null em saves antigos → EnsureIds()
+    ColorTrack? FillColor = null,   // cor de fill ANIMÁVEL (manda; FillArgb uint = fallback + semente)
+    ColorTrack? StrokeColor = null, // cor de stroke animável (StrokeArgb = fallback)
+    ColorTrack? FillColor2 = null,  // 2ª cor do gradiente animável (FillArgb2 = fallback)
+    Track? RotationX = null,     // rotação 3D em X (perspetiva) — inclina a camada plana (SK3dView)
+    Track? RotationY = null,     // rotação 3D em Y
+    // ---- Fase 7: efeitos premium (aditivo, trailing → zero call-sites mudam; retro-compat total) ----
+    GlowSpec? Glow = null,               // bloom aditivo keyframável (null → sem glow)
+    ShadowSpec? DropShadow = null,       // drop-shadow premium keyframável (null → sem sombra; ≠ bool Shadow)
+    Track? MotionBlur = null,            // obturador em FRAÇÃO DE FRAME (null/≤0 → desligado); segue o movimento real
+    int MotionBlurSamples = 12,          // K sub-amostras do obturador [2..32]; knob de custo/qualidade (não keyframável)
+    string? MatteSourceId = null,        // track-matte: Id/Name da camada-FONTE (stencil)
+    MatteMode Matte = MatteMode.None,    // modo do matte (alpha/luma, normal/invertido)
+    // ---- Fase 10: emissor de partículas (trailing → retro-compat total; null = camada normal) ----
+    ParticleSpec? Particles = null)      // se != null, a camada é um EMISSOR (o Shape é o sprite)
+{
+    /// <summary>Chave estável p/ endereçamento (aponta-e-instrui, IA): Id se existir, senão Name.</summary>
+    [System.Text.Json.Serialization.JsonIgnore] public string Key => Id ?? Name;
+}
 
 /// <summary>Extrusão 3D de uma camada: profundidade + bevel (unidades de mundo ~ px/220).
 /// A rotação Y usa o track Rotation da camada; luz/câmara vêm do Comp.</summary>

@@ -20,6 +20,18 @@
     {
       "source": "/admin",
       "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/admin"
+    },
+    {
+      "source": "/c/:slug",
+      "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/c/:slug"
+    },
+    {
+      "source": "/px.gif",
+      "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/px.gif"
+    },
+    {
+      "source": "/px",
+      "destination": "https://ferreirakorp-licensing.leonelferreira0373.workers.dev/px"
     }
   ]
 }

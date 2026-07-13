@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Driver de autoria: constrói um Comp em código e exporta MP4 via Mp4Exporter (ffmpeg).
+       Espelha o setup headless do Klip.Tests (SkiaSharp.NativeAssets.Win32). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Klip.Engine\Klip.Engine.csproj" />
+    <ProjectReference Include="..\Klip.Model\Klip.Model.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.150.0" />
+  </ItemGroup>
+
+</Project>

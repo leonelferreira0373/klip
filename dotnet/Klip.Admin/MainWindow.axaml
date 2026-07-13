@@ -1,0 +1,10 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.WebView"
+        x:Class="Klip.Admin.MainWindow"
+        Title="KLIP Administrador"
+        Width="1180" Height="800" MinWidth="880" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#F7F7F6">
+    <wv:NativeWebView x:Name="Web" />
+</Window>

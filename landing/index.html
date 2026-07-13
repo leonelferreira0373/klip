@@ -129,9 +129,27 @@
     [data-reveal]{ opacity:1; transform:none; transition:none }
     html{ scroll-behavior:auto }
   }
+
+  /* ---- desktop scroll-snap sections + dot nav (Step 4) ---- */
+  #dotnav{ position:fixed; right:16px; top:50%; transform:translateY(-50%); z-index:60;
+           display:none; flex-direction:column; gap:12px; }
+  #dotnav button{ width:11px; height:11px; padding:0; border-radius:50%; border:1.6px solid var(--line-2);
+                  background:transparent; cursor:pointer; transition:transform .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease); }
+  #dotnav button:hover{ border-color:var(--brand); transform:scale(1.25); }
+  #dotnav button[aria-current="true"]{ background:var(--brand); border-color:var(--brand); transform:scale(1.3); }
+  @media (min-width:900px) and (pointer:fine) and (prefers-reduced-motion:no-preference){
+    html{ scroll-snap-type:y proximity; scroll-padding-top:66px; }
+    body.snapped .snap{ scroll-snap-align:start; min-height:100vh; display:flex; flex-direction:column;
+                        justify-content:center; padding-top:84px; padding-bottom:48px; }
+    body.snapped #dotnav{ display:flex; }
+  }
+  #comingSoon input{ flex:1; min-width:200px; min-height:48px; padding:0 16px; border:1px solid var(--line-2);
+                     border-radius:12px; font-family:inherit; font-size:15px; color:var(--ink); background:#fff; }
 </style>
 </head>
 <body>
+
+<nav id="dotnav" aria-label="Navegação por secções"></nav>
 
 <header>
   <div class="wrap nav">
@@ -239,10 +257,19 @@
     <div class="download" data-reveal>
       <h2 data-pt="Pronto a usar. Um único ficheiro." data-en="Ready to use. A single file.">Pronto a usar. Um único ficheiro.</h2>
       <p data-pt="Descarrega, faz duplo-clique, cria. Sem instalador, sem runtimes, sem configuração." data-en="Download, double-click, create. No installer, no runtimes, no setup.">Descarrega, faz duplo-clique, cria. Sem instalador, sem runtimes, sem configuração.</p>
-      <a id="dl" href="#" class="btn btn-primary">
+      <a id="dl" href="/c/download" class="btn btn-primary">
         <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
         <span data-pt="Descarregar KLIP Animator" data-en="Download KLIP Animator">Descarregar KLIP Animator</span>
       </a>
+      <div id="comingSoon" style="display:none;">
+        <h2 data-pt="Em breve para telemóvel" data-en="Coming soon to phones">Em breve para telemóvel</h2>
+        <p data-pt="O KLIP Animator é uma app de desktop (Windows). A versão para telemóvel está a caminho — deixa o teu email e avisamos-te no lançamento." data-en="KLIP Animator is a desktop app (Windows). The phone version is on the way — leave your email and we'll tell you at launch.">O KLIP Animator é uma app de desktop (Windows). A versão para telemóvel está a caminho — deixa o teu email e avisamos-te no lançamento.</p>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:420px;margin:0 auto;">
+          <input id="csEmail" type="email" placeholder="o-teu@email.com" aria-label="email" />
+          <button class="btn btn-primary" onclick="csNotify()" style="background:#fff;color:var(--brand-ink);border-color:#fff;"><span data-pt="Avisar-me" data-en="Notify me">Avisar-me</span></button>
+        </div>
+        <div id="csMsg" style="font-size:13px;opacity:.92;margin-top:12px;min-height:18px;"></div>
+      </div>
     </div>
   </section>
 </main>
@@ -275,7 +302,7 @@
 <script>
   var DOWNLOAD_URL = "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe";
   var REPO_URL = "https://github.com/leonelferreira0373/klip";
-  document.getElementById("dl").href = DOWNLOAD_URL;
+  document.getElementById("dl").href = "/c/download";   // conta o clique no worker, depois 302 → .exe
   document.getElementById("src").href = REPO_URL;
   document.getElementById("yr").textContent = new Date().getFullYear();
 
@@ -340,6 +367,61 @@
       }).catch(function(){ msg.textContent = "erro de rede"; });
   }
   window.subscribe = subscribe;
+
+  /* ---- beacon de visita (não-bloqueante, mesma origem via rewrite Vercel) ---- */
+  try{ new Image().src = "/px.gif?p=" + encodeURIComponent(location.pathname) + "&r=" + encodeURIComponent(document.referrer || ""); }catch(e){}
+
+  /* ---- gating mobile: sem .exe no telemóvel → CTA "em breve" ---- */
+  var IS_MOBILE = window.matchMedia("(pointer:coarse)").matches || window.innerWidth < 760
+                  || /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent);
+  (function gate(){
+    var dl = document.getElementById("dl"), cs = document.getElementById("comingSoon");
+    if(IS_MOBILE){ if(dl) dl.style.display = "none"; if(cs) cs.style.display = "block"; }
+    else { if(dl) dl.style.display = ""; if(cs) cs.style.display = "none"; }
+  })();
+  function csNotify(){
+    var i = document.getElementById("csEmail"), msg = document.getElementById("csMsg");
+    var em = (i ? i.value : "").trim();
+    if(!em || em.indexOf("@") < 1){ if(msg) msg.textContent = "Escreve um email válido."; return; }
+    fetch(WK + "/klip/subscribe", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:em }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        if(msg) msg.textContent = d.ok ? "Obrigado ✓ avisamos-te no lançamento." : (d.error || "erro");
+        if(d.ok && i) i.value = "";
+      }).catch(function(){ if(msg) msg.textContent = "erro de rede"; });
+  }
+  window.csNotify = csNotify;
+
+  /* ---- navegação por secções (scroll-snap) — só desktop, respeita reduced-motion ---- */
+  (function dots(){
+    if(!window.matchMedia("(min-width:900px) and (pointer:fine)").matches) return;
+    if(window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var panels = [];
+    document.querySelectorAll("main > section").forEach(function(s){ panels.push(s); });
+    document.querySelectorAll("body > section").forEach(function(s){ panels.push(s); });
+    if(panels.length < 2) return;
+    var LABELS = [["Início","Home"],["Funções","Features"],["Preços","Pricing"],["Integrações","Integrations"],["Versões","Versions"],["Descarregar","Download"],["Novidades","Updates"]];
+    document.body.classList.add("snapped");
+    var nav = document.getElementById("dotnav"); if(!nav) return;
+    panels.forEach(function(s, i){
+      s.classList.add("snap");
+      var lab = LABELS[i] || ["", ""];
+      var b = document.createElement("button");
+      var name = (document.documentElement.lang === "en" ? lab[1] : lab[0]) || ("secção " + (i + 1));
+      b.setAttribute("aria-label", name); b.title = name;
+      b.addEventListener("click", function(){ s.scrollIntoView({ behavior:"smooth", block:"start" }); });
+      nav.appendChild(b);
+    });
+    var btns = nav.querySelectorAll("button");
+    if("IntersectionObserver" in window){
+      var io2 = new IntersectionObserver(function(es){
+        es.forEach(function(e){
+          if(e.isIntersecting){ var idx = panels.indexOf(e.target);
+            btns.forEach(function(b, i){ b.setAttribute("aria-current", String(i === idx)); }); }
+        });
+      }, { threshold:.5 });
+      panels.forEach(function(s){ io2.observe(s); });
+    }
+  })();
 </script>
 </body>
 </html>

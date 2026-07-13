@@ -20,7 +20,8 @@ public sealed class ActionRegistry
 
     private sealed record Act(string Description,
         Dictionary<string, object> Params, string[] Required,
-        Func<JsonElement, object?> Run, bool Background = false);
+        Func<JsonElement, object?> Run, bool Background = false,
+        Func<JsonElement, Task<object?>>? RunAsync = null);   // Fase 8: verbos async (WebView2 InvokeScript)
 
     private Dictionary<string, Act>? _acts;
 
@@ -46,12 +47,41 @@ public sealed class ActionRegistry
             a => _w.ApiInsertShape(Str(a, "shape") ?? "circle", Num(a, "size") ?? 120,
                                    Str(a, "fill"), Num(a, "x") ?? 0, Num(a, "y") ?? 0)),
 
-        ["insert_text"] = new("Insere texto como contornos vetoriais editáveis.",
+        ["insert_text"] = new("Insere texto como contornos vetoriais editáveis. Acentos PT (ç/ã/õ/é) OK. family=fonte de sistema ou carregada por load_font.",
             P(("text", "string", "o texto"), ("size", "number", "tamanho da fonte (default 120)"),
-              ("fill", "string", "#RRGGBB"), ("x", "number", ""), ("y", "number", "")),
+              ("fill", "string", "#RRGGBB"), ("x", "number", ""), ("y", "number", ""),
+              ("family", "string", "fonte de sistema ou carregada por load_font (default Segoe UI)")),
             new[] { "text" },
             a => _w.ApiInsertText(Str(a, "text") ?? "", Num(a, "size") ?? 120,
-                                  Str(a, "fill"), Num(a, "x") ?? 0, Num(a, "y") ?? 0)),
+                                  Str(a, "fill"), Num(a, "x") ?? 0, Num(a, "y") ?? 0, Str(a, "family"))),
+
+        ["load_font"] = new("Carrega/baixa uma fonte e regista-a: name (ex. 'Bebas Neue' → baixa do Google Fonts), caminho .ttf/.otf/.ttc do disco, ou URL. Devolve a family a usar em insert_text/set_font. Cacheada em %APPDATA%\\Klip\\fonts.",
+            P(("name", "string", "nome, caminho ou URL")),
+            new[] { "name" },
+            a => _w.ApiLoadFont(Str(a, "name") ?? ""), Background: true),
+
+        ["set_font"] = new("Muda a fonte de uma camada de texto (re-bake) OU, sem id, define a fonte por omissão dos próximos insert_text.",
+            P(("id", "string", "camada de texto (opcional)"), ("family", "string", "fonte de sistema ou carregada")),
+            new[] { "family" },
+            a => _w.ApiSetFont(Str(a, "id"), Str(a, "family") ?? "Segoe UI")),
+
+        ["reorder"] = new("Reordena a camada no z-index: mode=front (topo) | back (fundo) | forward | backward.",
+            P(("id", "string", ""), ("mode", "string", "front|back|forward|backward")),
+            new[] { "id", "mode" },
+            a => _w.ApiReorder(Str(a, "id") ?? "", Str(a, "mode") ?? "front")),
+
+        ["duplicate"] = new("Duplica uma camada COM todos os keyframes/animação. Devolve o id da cópia (fica por cima do original).",
+            P(("id", "string", "")),
+            new[] { "id" },
+            a => _w.ApiDuplicate(Str(a, "id") ?? "")),
+
+        ["stagger"] = new("A MESMA animação a várias camadas com desfasamento (o clássico stagger). ids=lista por vírgulas; path=propriedade (opacity|position.y|scale|color.fill…); from/to=valor OU #hex; duration=s de cada animação; offset=atraso entre camadas (s).",
+            P(("ids", "string", "ids separados por vírgula"), ("path", "string", ""), ("from", "string", "valor ou #hex"),
+              ("to", "string", "valor ou #hex"), ("duration", "number", "s"), ("offset", "number", "atraso entre camadas (s)"), ("ease", "string", "")),
+            new[] { "ids", "path", "from", "to", "duration", "offset" },
+            a => _w.ApiStagger((Str(a, "ids") ?? "").Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries),
+                               Str(a, "path") ?? "opacity", Str(a, "from") ?? "0", Str(a, "to") ?? "1",
+                               Num(a, "duration") ?? 0.5, Num(a, "offset") ?? 0.1, Str(a, "ease") ?? "linear")),
 
         ["insert_path"] = new("Insere um caminho SVG 'd' (coords centradas no canvas).",
             P(("d", "string", "SVG path data"), ("fill", "string", "#RRGGBB")),
@@ -185,6 +215,35 @@ public sealed class ActionRegistry
             a => _w.ApiAddKeyframe(Str(a, "id") ?? "", Str(a, "prop") ?? "x",
                                    Num(a, "time") ?? 0, Num(a, "value") ?? 0, Str(a, "ease") ?? "linear", Str(a, "bez"))),
 
+        // ===== Fase 1: sistema de propriedades UNIFORME — endereça QUALQUER prop, incl. COR keyframável =====
+        ["set_keyframe"] = new("Keyframe UNIFORME em QUALQUER propriedade, incl. COR. path=position.x|position.y|rotation|scale|scale.x|scale.y|skew.x|blur|opacity|trim.start|trim.end|color.fill|color.stroke|color.fill2 (aliases x,y,scale_x,scale_y,fill,stroke também servem). value = número OU cor \"#RRGGBB\"/\"#AARRGGBB\". Ex.: set_keyframe(id,\"color.fill\",0,\"#FF0000\") + set_keyframe(id,\"color.fill\",1,\"#0000FF\") → o fill anima vermelho→azul. A 1ª kf de cor semeia-se da cor atual (sem salto).",
+            P(("id", "string", ""), ("path", "string", "propriedade canónica ou alias"),
+              ("time", "number", "segundos"), ("value", "string", "número ou #hex de cor"),
+              ("ease", "string", "linear|hold|in|out|inout|outback"), ("bez", "string", "cubic-bezier opcional")),
+            new[] { "id", "path", "time", "value" },
+            a => _w.ApiSetKeyframe(Str(a, "id") ?? "", Str(a, "path") ?? "opacity",
+                                   Num(a, "time") ?? 0, Str(a, "value") ?? "0", Str(a, "ease") ?? "linear", Str(a, "bez"))),
+
+        ["set_prop"] = new("Define o valor ESTÁTICO de qualquer propriedade (incl. cor). value = número ou #hex.",
+            P(("id", "string", ""), ("path", "string", ""), ("value", "string", "número ou #hex")),
+            new[] { "id", "path", "value" },
+            a => _w.ApiSetProp(Str(a, "id") ?? "", Str(a, "path") ?? "", Str(a, "value") ?? "0")),
+
+        ["get_prop"] = new("Lê o valor de qualquer propriedade no tempo t (escalar ou cor).",
+            P(("id", "string", ""), ("path", "string", ""), ("t", "number", "tempo em s, default 0")),
+            new[] { "id", "path" },
+            a => _w.ApiGetProp(Str(a, "id") ?? "", Str(a, "path") ?? "", Num(a, "t") ?? 0)),
+
+        ["remove_keyframe"] = new("Remove o keyframe de uma propriedade no tempo dado.",
+            P(("id", "string", ""), ("path", "string", ""), ("time", "number", "segundos")),
+            new[] { "id", "path", "time" },
+            a => _w.ApiRemoveKeyframe(Str(a, "id") ?? "", Str(a, "path") ?? "", Num(a, "time") ?? 0)),
+
+        ["list_props"] = new("Lista as propriedades animáveis endereçáveis de uma camada (path, kind, animated).",
+            P(("id", "string", "")),
+            new[] { "id" },
+            a => _w.ApiListProps(Str(a, "id") ?? "")),
+
         ["set_camera"] = new("Câmara 3D REAL (estática): posição x,y,z, alvo tx,ty,tz, fov graus. Só os campos passados mudam.",
             P(("x", "number", ""), ("y", "number", ""), ("z", "number", "distância, default 5.2"),
               ("tx", "number", ""), ("ty", "number", ""), ("tz", "number", ""), ("fov", "number", "graus, default 34")),
@@ -249,6 +308,79 @@ public sealed class ActionRegistry
 
         ["screenshot"] = new("Tira uma captura da JANELA inteira do KLIP e recebe-la como imagem (visão) — p/ veres o estado do editor tal como o utilizador o vê.",
             P(), Array.Empty<string>(), _ => _w.ApiScreenshot()),
+
+        // ===== Fase 8: agência ao nível do DOM (WebView2) + baixar/implementar qualquer asset =====
+        ["browser_dom"] = new("BROWSER (DOM): lê a página ATUAL e devolve o mapa estruturado {title, headings, links:[{href,text}], images:[{src,alt}], videos, audios, text}. URLs já absolutos. 'Lê' a página sem precisar de visão.",
+            P(), Array.Empty<string>(), _ => null, RunAsync: _ => _w.ApiBrowserDom()),
+
+        ["browser_extract_assets"] = new("BROWSER (DOM): devolve só as listas de URLs de assets da página aberta (images/videos/audios/links), já absolutos — escolhe um e passa a download_asset.",
+            P(), Array.Empty<string>(), _ => null, RunAsync: _ => _w.ApiBrowserExtractAssets()),
+
+        ["browser_click"] = new("BROWSER (DOM): clica um elemento por seletor CSS (selector) OU pelo texto do link/botão (text). wait_nav=true espera a navegação resultante.",
+            P(("selector", "string", "seletor CSS"), ("text", "string", "texto do link/botão"), ("wait_nav", "boolean", "esperar navegação")),
+            Array.Empty<string>(), _ => null, RunAsync: a => _w.ApiBrowserClick(Str(a, "selector"), Str(a, "text"), Bool(a, "wait_nav") ?? false)),
+
+        ["browser_type"] = new("BROWSER (DOM): escreve texto num campo (input/textarea) por seletor CSS e dispara input/change (compatível com React/Vue).",
+            P(("selector", "string", "seletor CSS do campo"), ("text", "string", "texto a escrever")),
+            new[] { "selector", "text" }, _ => null, RunAsync: a => _w.ApiBrowserType(Str(a, "selector") ?? "", Str(a, "text") ?? "")),
+
+        ["browser_eval"] = new("BROWSER (poder total): corre JavaScript na página e devolve o resultado como JSON. O teu código deve fazer 'return <valor>'. Ex.: 'return document.querySelectorAll(\".price\").length'.",
+            P(("js", "string", "expressão/statements JS que fazem return")), new[] { "js" },
+            _ => null, RunAsync: a => _w.ApiBrowserEval(Str(a, "js") ?? "")),
+
+        ["browser_wait_idle"] = new("BROWSER: espera a próxima navegação terminar (após um clique que muda de página), até timeout_ms (default 8000). Devolve {navigated}.",
+            P(("timeout_ms", "number", "default 8000")), Array.Empty<string>(),
+            _ => null, RunAsync: a => _w.ApiBrowserWaitIdle((int)(Num(a, "timeout_ms") ?? 8000))),
+
+        ["download_asset"] = new("BROWSER/ASSETS: baixa QUALQUER url (imagem/áudio/vídeo/fonte/ficheiro; http(s) ou data:) p/ a pasta certa (validação por magic bytes) e, se for imagem, insere-a como camada (usa render_frame p/ a VERES). Fonte → devolve family p/ set_font/insert_text. Devolve {kind, path, from_cache}.",
+            P(("url", "string", "URL de qualquer asset (ou data:)")), new[] { "url" },
+            _ => null, RunAsync: a => _w.ApiDownloadAsset(Str(a, "url") ?? "")),
+
+        // ===== Fase 9: SVG editável (nós) + rotoscoping =====
+        ["list_nodes"] = new("SVG EDITÁVEL: lista os NÓS de uma camada (ponto on-curve, handles bezier in/out, tipo corner/smooth, contorno). Usa antes de edit_node.",
+            P(("id", "string", ""), ("key", "number", "índice da MorphKey, default 0")), new[] { "id" },
+            a => _w.ApiListNodes(Str(a, "id") ?? "", (int)(Num(a, "key") ?? 0))),
+
+        ["edit_node"] = new("SVG EDITÁVEL: edita um nó. op=move (desloca dx,dy) | insert (subdivide o segmento que SAI de index em t 0..1, SEM deformar) | delete | set_handle (side=in|out, offset dx,dy; smooth espelha) | set_type (type=corner|smooth).",
+            P(("id", "string", ""), ("op", "string", "move|insert|delete|set_handle|set_type"), ("index", "number", "de list_nodes"),
+              ("dx", "number", ""), ("dy", "number", ""), ("side", "string", "in|out"), ("t", "number", "0..1 (insert)"), ("type", "string", "corner|smooth"), ("key", "number", "default 0")),
+            new[] { "id", "op", "index" },
+            a => _w.ApiEditNode(Str(a, "id") ?? "", Str(a, "op") ?? "move", (int)(Num(a, "index") ?? 0), Num(a, "dx") ?? 0, Num(a, "dy") ?? 0, Str(a, "side"), Num(a, "t") ?? 0.5, Str(a, "type"), (int)(Num(a, "key") ?? 0))),
+
+        ["simplify_path"] = new("SVG EDITÁVEL: reduz nós redundantes (Ramer-Douglas-Peucker) mantendo a forma — limpa o output do trace/roto. tolerance px (maior = menos nós).",
+            P(("id", "string", ""), ("tolerance", "number", "px, default 2"), ("key", "number", "default 0")), new[] { "id" },
+            a => _w.ApiSimplifyPath(Str(a, "id") ?? "", Num(a, "tolerance") ?? 2, (int)(Num(a, "key") ?? 0))),
+
+        ["import_svg"] = new("SVG EDITÁVEL: importa um .svg (caminho) OU texto SVG inline — cada <path> vira camada editável (+rect/circle/ellipse/polygon). Aplica transforms, lê fill, recentra. Depois usa list_nodes/edit_node.",
+            P(("path_or_text", "string", "caminho .svg ou SVG inline"), ("x", "number", "offset do centro"), ("y", "number", "")), new[] { "path_or_text" },
+            a => _w.ApiImportSvg(Str(a, "path_or_text") ?? "", Num(a, "x") ?? 0, Num(a, "y") ?? 0)),
+
+        ["trace_bitmap"] = new("ROTO/VETOR: traça o alpha (ou luma) de uma camada de imagem/máscara para um PATH vetorial editável (contorno + RDP). A ponte raster→vetor.",
+            P(("id", "string", "camada imagem/máscara"), ("threshold", "number", "0-255, default 128"), ("simplify", "number", "px RDP, default 1.5"), ("luma", "boolean", "usar luminância")), new[] { "id" },
+            a => _w.ApiTraceBitmap(Str(a, "id") ?? "", Num(a, "threshold") ?? 128, Num(a, "simplify") ?? 1.5, Bool(a, "luma") ?? false)),
+
+        ["roto"] = new("ROTOSCOPING: isola o sujeito (ONNX on-device) e traça-o num recorte vetorial editável; as_matte recorta o próprio sujeito via track-matte. Model-gated: erro claro se o modelo faltar.",
+            P(("id", "string", "camada imagem"), ("threshold", "number", "default 128"), ("simplify", "number", "default 1.5"), ("as_matte", "boolean", "recortar o sujeito"), ("invert", "boolean", "")), new[] { "id" },
+            a => _w.ApiRoto(Str(a, "id") ?? "", Num(a, "threshold") ?? 128, Num(a, "simplify") ?? 1.5, Bool(a, "as_matte") ?? false, Bool(a, "invert") ?? false), Background: true),
+
+        ["set_matte"] = new("TRACK-MATTE (Fase 7): a camada source vira stencil da camada id. mode=alpha|alpha_invert|luma|luma_invert|none. Liga roto→recorte.",
+            P(("id", "string", "alvo"), ("source", "string", "camada-fonte/stencil"), ("mode", "string", "alpha|alpha_invert|luma|luma_invert|none")), new[] { "id", "source", "mode" },
+            a => _w.ApiSetMatte(Str(a, "id") ?? "", Str(a, "source") ?? "", Str(a, "mode") ?? "alpha")),
+
+        // ===== Fase 10: emissor de partículas =====
+        ["set_particles"] = new("PARTÍCULAS: torna a camada um EMISSOR (o Shape é o sprite). preset=confetti|sparks|smoke|stars aplica um look completo; depois afina rate/lifetime/speed/gravity/spread/direction/spin/spawn_radius/particle_scale/fade_in/fade_out/color_a/color_b/seed. rate/gravity/etc também são keyframáveis via set_keyframe.",
+            P(("id", "string", ""), ("preset", "string", "confetti|sparks|smoke|stars"),
+              ("rate", "number", "partículas/seg"), ("lifetime", "number", "seg"), ("speed", "number", "px/s"),
+              ("gravity", "number", "px/s² (+baixo)"), ("spread", "number", "± graus (180=omni)"), ("direction", "number", "graus (-90=cima)"),
+              ("spin", "number", "graus/s"), ("spawn_radius", "number", "px"), ("particle_scale", "number", ""),
+              ("fade_in", "number", "0..1"), ("fade_out", "number", "0..1"), ("color_a", "string", "#hex"), ("color_b", "string", "#hex"), ("seed", "number", "")),
+            new[] { "id" },
+            a => _w.ApiSetParticles(Str(a, "id") ?? "", Str(a, "preset"), Num(a, "rate"), Num(a, "lifetime"), Num(a, "speed"),
+                Num(a, "gravity"), Num(a, "spread"), Num(a, "direction"), Num(a, "spin"), Num(a, "spawn_radius"), Num(a, "particle_scale"),
+                Num(a, "fade_in"), Num(a, "fade_out"), Str(a, "color_a"), Str(a, "color_b"), Num(a, "seed") is double sd ? (int)sd : (int?)null)),
+
+        ["clear_particles"] = new("PARTÍCULAS: remove o emissor da camada (volta a ser uma forma normal).",
+            P(("id", "string", "")), new[] { "id" }, a => _w.ApiClearParticles(Str(a, "id") ?? "")),
     };
 
     public object Manifest() => Acts.Select(kv => new
@@ -266,6 +398,9 @@ public sealed class ActionRegistry
         OpLog.Op("action", action);   // auto-registo de operações
         try
         {
+            // Fase 8: verbo async (Browser.InvokeScript é Task) — corre e awaita na UI thread (sem deadlock).
+            if (act.RunAsync is not null)
+                return await Dispatcher.UIThread.InvokeAsync(() => act.RunAsync(args));
             // Background=true: corre num thread do pool (transcrição pesada) sem congelar a UI.
             return act.Background
                 ? await Task.Run(() => act.Run(args))

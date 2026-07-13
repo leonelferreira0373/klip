@@ -32,8 +32,11 @@ public static class McpStdioBridge
 
     public static int Run()
     {
-        var stdin = Console.In;
-        var stdout = Console.Out;
+        // FIX UTF-8 (acentos): ler/escrever stdin/stdout SEMPRE em UTF-8 (a consola Windows usa CP1252
+        // → "coração" viria mojibake). Wrappers sobre os streams crus = à prova de pipes redirecionados.
+        var utf8 = new System.Text.UTF8Encoding(false);
+        using var stdin = new System.IO.StreamReader(Console.OpenStandardInput(), utf8, detectEncodingFromByteOrderMarks: false);
+        var stdout = new System.IO.StreamWriter(Console.OpenStandardOutput(), utf8) { AutoFlush = true };
         string? line;
         while ((line = stdin.ReadLine()) is not null)
         {

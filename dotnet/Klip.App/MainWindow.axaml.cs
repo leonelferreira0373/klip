@@ -29,6 +29,8 @@ public partial class MainWindow : Window
     private double _resizeStartDist, _resizeStartScale;
     private bool _snap;
     private int _nameSeq = 1;
+    private string _defaultFamily = "Segoe UI";                                   // fonte por omissão dos insert_text
+    private readonly Dictionary<string, (string text, float size)> _textMeta = new();  // texto+size p/ re-bake em set_font
 
     private readonly List<List<Layer>> _hist = new();
     private int _histIx = -1;
@@ -501,9 +503,12 @@ public partial class MainWindow : Window
   window.addEventListener('scroll',function(){chip.style.display='none';},true);
 })();";
 
+    private System.Threading.Tasks.TaskCompletionSource<bool>? _navTcs;   // Fase 8: espera de navegação (browser_wait_idle)
+
     private async void OnBrowserNavCompleted(object? s, Avalonia.Controls.WebViewNavigationCompletedEventArgs e)
     {
         try { if (e.IsSuccess) await Browser.InvokeScript(GrabJs); } catch { }
+        _navTcs?.TrySetResult(e.IsSuccess);   // desbloqueia quem espera a navegação
     }
 
     private void OnWebMessage(object? s, Avalonia.Controls.WebMessageReceivedEventArgs e)
@@ -673,6 +678,125 @@ public partial class MainWindow : Window
         var path = System.IO.Path.Combine(AssetsDir("downloads"), "win_" + Environment.TickCount64 + ".png");
         System.IO.File.WriteAllBytes(path, png);
         return new { _image = path, note = "a janela do KLIP" };
+    }
+
+    // ================= FASE 8: agência ao nível do DOM + baixar qualquer asset =================
+
+    private static string AssetsRootDir()
+    {
+        var d = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Klip", "assets");
+        System.IO.Directory.CreateDirectory(d);
+        return d;
+    }
+
+    /// <summary>String C# → literal JS seguro (JSON string é JS válido).</summary>
+    private static string JsStr(string s) => System.Text.Json.JsonSerializer.Serialize(s);
+
+    /// <summary>Corre JS no browser e devolve o JSON desembrulhado. Lança se o browser não está aberto.</summary>
+    private async Task<System.Text.Json.Nodes.JsonNode?> EvalDomAsync(string js)
+    {
+        if (!_browserOpen) throw new InvalidOperationException("o browser não está aberto — usa web_open primeiro");
+        var raw = await Browser.InvokeScript(js);
+        return UnwrapJson(raw);
+    }
+
+    /// <summary>Desembrulha o resultado do InvokeScript (tolera dupla-codificação de string JSON).</summary>
+    private static System.Text.Json.Nodes.JsonNode? UnwrapJson(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw) || raw.Trim() == "null") return null;
+        System.Text.Json.Nodes.JsonNode? node;
+        try { node = System.Text.Json.Nodes.JsonNode.Parse(raw); } catch { return null; }
+        if (node is System.Text.Json.Nodes.JsonValue jv && jv.TryGetValue<string>(out var inner))
+        {
+            var t = inner.TrimStart();
+            if (t.StartsWith('{') || t.StartsWith('['))
+                try { return System.Text.Json.Nodes.JsonNode.Parse(inner); } catch { }
+        }
+        return node;
+    }
+
+    private async Task<bool> WaitNavAsync(int timeoutMs = 8000)
+    {
+        var tcs = _navTcs;
+        if (tcs is null) return false;
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs));
+        return done == tcs.Task && tcs.Task.Result;
+    }
+
+    /// <summary>browser_dom: mapa estruturado da página atual (mesmo shape que DomExtract.Parse).</summary>
+    public async Task<object?> ApiBrowserDom()
+    {
+        var node = await EvalDomAsync(Klip.Engine.DomExtract.ExtractJs);
+        return node is null ? new { ok = false, error = "sem resposta do DOM" } : (object)node;
+    }
+
+    /// <summary>browser_extract_assets: só as listas de URLs de assets da página aberta.</summary>
+    public async Task<object?> ApiBrowserExtractAssets()
+    {
+        var node = await EvalDomAsync(Klip.Engine.DomExtract.ExtractJs);
+        if (node is null) return new { ok = false, error = "sem resposta" };
+        return new { images = node["images"], videos = node["videos"], audios = node["audios"], links = node["links"] };
+    }
+
+    /// <summary>browser_click: por seletor CSS OU por texto do link/botão; opcionalmente espera a navegação.</summary>
+    public async Task<object?> ApiBrowserClick(string? selector, string? text, bool waitNav)
+    {
+        string js;
+        if (!string.IsNullOrWhiteSpace(selector))
+            js = "(function(){var el=document.querySelector(" + JsStr(selector) +
+                 "); if(!el) return JSON.stringify({ok:false,error:'no match'}); el.click(); return JSON.stringify({ok:true,clicked:(el.tagName||'').toLowerCase()});})()";
+        else if (!string.IsNullOrWhiteSpace(text))
+            js = "(function(){var t=" + JsStr(text) +
+                 ".toLowerCase(); var els=[].slice.call(document.querySelectorAll('a,button,[role=button],input[type=submit],input[type=button]')); var el=els.find(function(e){return ((e.innerText||e.value||'').toLowerCase().indexOf(t)>=0);}); if(!el) return JSON.stringify({ok:false,error:'no text match'}); el.click(); return JSON.stringify({ok:true,clicked:(el.innerText||el.value||'').slice(0,60)});})()";
+        else return new { ok = false, error = "dá selector ou text" };
+
+        if (waitNav) _navTcs = new(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+        var node = await EvalDomAsync(js);
+        bool navigated = false;
+        if (waitNav) navigated = await WaitNavAsync();
+        return new { result = node, navigated };
+    }
+
+    /// <summary>browser_type: escreve num campo por seletor + dispara input/change (React/Vue-safe).</summary>
+    public async Task<object?> ApiBrowserType(string selector, string text)
+    {
+        if (string.IsNullOrWhiteSpace(selector)) throw new InvalidOperationException("selector vazio");
+        var js = "(function(){var el=document.querySelector(" + JsStr(selector) +
+                 "); if(!el) return JSON.stringify({ok:false,error:'no match'}); var v=" + JsStr(text) +
+                 "; var proto=el.tagName==='TEXTAREA'?window.HTMLTextAreaElement.prototype:window.HTMLInputElement.prototype; var d=Object.getOwnPropertyDescriptor(proto,'value'); if(d&&d.set){d.set.call(el,v);}else{el.value=v;} el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); return JSON.stringify({ok:true});})()";
+        return await EvalDomAsync(js) ?? (object)new { ok = false };
+    }
+
+    /// <summary>browser_eval: JS cru com return → JSON {ok,result} ou {ok:false,error}.</summary>
+    public async Task<object?> ApiBrowserEval(string js)
+    {
+        if (string.IsNullOrWhiteSpace(js)) throw new InvalidOperationException("js vazio");
+        var wrapped = "(function(){try{var __r=(function(){" + js +
+                      "})(); return JSON.stringify({ok:true,result:(__r===undefined?null:__r)});}catch(e){return JSON.stringify({ok:false,error:String(e)});}})()";
+        return await EvalDomAsync(wrapped) ?? (object)new { ok = false, error = "sem resposta" };
+    }
+
+    /// <summary>browser_wait_idle: espera a próxima navegação terminar (até timeout).</summary>
+    public async Task<object?> ApiBrowserWaitIdle(int timeoutMs)
+    {
+        _navTcs = new(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+        return new { navigated = await WaitNavAsync(timeoutMs <= 0 ? 8000 : timeoutMs) };
+    }
+
+    /// <summary>download_asset: baixa QUALQUER url (magic-bytes) → pasta certa; imagem vira camada.</summary>
+    public async Task<object?> ApiDownloadAsset(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) throw new InvalidOperationException("url vazio");
+        var res = await Klip.Engine.AssetDownloader.Shared.DownloadAsync(url, AssetsRootDir());
+        string? layerId = null;
+        if (res.Kind == Klip.Engine.AssetKind.Image)
+        {
+            layerId = ApiInsertImage(res.Path);
+            AppendChat("·", "asset (imagem) baixado da web → camada");
+        }
+        else AppendChat("·", $"asset baixado ({res.Kind}) → {System.IO.Path.GetFileName(res.Path)}");
+        return new { kind = res.Kind.ToString().ToLowerInvariant(), path = res.Path, from_cache = res.FromCache, id = layerId, family = res.FontFamily };
     }
 
     // ================= PAYWALL / Créditos (comprovativo PDF → worker FK) =================
@@ -1607,6 +1731,178 @@ public partial class MainWindow : Window
         return new { path = outPath, ms };
     }
 
+    // ================= FASE 9: SVG editável (nós) + rotoscoping =================
+
+    private (int ix, Layer l, PathEdit e, int key) OpenEdit(string id, int keyIndex)
+    {
+        int ix = FindLayer(id);
+        var l = Sel(id);
+        var keys = l.Shape.Keys;
+        if (keys.Count == 0) throw new InvalidOperationException("a camada não tem forma editável");
+        int k = Math.Clamp(keyIndex, 0, keys.Count - 1);
+        return (ix, l, PathEdit.Parse(keys[k].PathD), k);
+    }
+    private void CommitEdit(int ix, Layer l, int key, PathEdit e)
+    {
+        var ks = l.Shape.Keys.ToArray();
+        ks[key] = ks[key] with { PathD = e.ToSvgPathData() };
+        _layers[ix] = l with { Shape = new MorphTrack(ks) };
+    }
+
+    public object ApiListNodes(string id, int key)
+    {
+        var (_, _, e, _) = OpenEdit(id, key);
+        var nodes = e.Enumerate().Select(n => new
+        {
+            i = n.i, contour = n.contour, x = n.node.Point.X, y = n.node.Point.Y,
+            in_x = n.node.HandleIn.X, in_y = n.node.HandleIn.Y, out_x = n.node.HandleOut.X, out_y = n.node.HandleOut.Y,
+            type = n.node.Type.ToString().ToLowerInvariant(),
+        }).ToArray();
+        return new { count = e.NodeCount, contours = e.Contours.Count, nodes };
+    }
+
+    public object ApiEditNode(string id, string op, int index, double dx, double dy, string? side, double t, string? type, int key)
+    {
+        var (ix, l, e, k) = OpenEdit(id, key);
+        switch ((op ?? "").ToLowerInvariant())
+        {
+            case "move": e.MoveNode(index, dx, dy); break;
+            case "insert": e.InsertNode(index, t <= 0 || t >= 1 ? 0.5 : t); break;
+            case "delete": e.DeleteNode(index); break;
+            case "set_handle": e.SetHandle(index, (side ?? "out").ToLowerInvariant() != "in", dx, dy); break;
+            case "set_type": e.SetNodeType(index, (type ?? "corner").ToLowerInvariant() == "smooth" ? NodeType.Smooth : NodeType.Corner); break;
+            default: throw new InvalidOperationException("op inválida (move|insert|delete|set_handle|set_type): " + op);
+        }
+        Mutate(() => CommitEdit(ix, l, k, e));
+        return new { ok = true, count = e.NodeCount };
+    }
+
+    public object ApiSimplifyPath(string id, double tolerance, int key)
+    {
+        var (ix, l, e, k) = OpenEdit(id, key);
+        int before = e.NodeCount;
+        e.Simplify(tolerance <= 0 ? 2.0 : tolerance);
+        int after = e.NodeCount;
+        Mutate(() => CommitEdit(ix, l, k, e));
+        return new { ok = true, before, after };
+    }
+
+    public object ApiImportSvg(string pathOrText, double x, double y)
+    {
+        var paths = SvgImport.CenterAll(SvgImport.ImportPaths(pathOrText));
+        if (paths.Count == 0) throw new InvalidOperationException("nenhum <path> encontrado no SVG");
+        var ids = new List<string>();
+        Mutate(() =>
+        {
+            foreach (var p in paths)
+            {
+                var layer = new Layer($"svg-{_nameSeq++}", MorphTrack.Static(p.D), p.FillArgb ?? NextColor(),
+                    PosX: Track.Const(x), PosY: Track.Const(y));
+                _layers.Add(layer);
+                ids.Add(layer.Name);
+            }
+            _selected = _layers.Count - 1;
+        });
+        return new { ids, count = paths.Count };
+    }
+
+    public object ApiTraceBitmap(string id, double threshold, double simplify, bool luma)
+    {
+        var l = Sel(id);
+        if (l.ImagePath is null) throw new InvalidOperationException("a camada não é uma imagem/máscara");
+        using var bmp = SkiaSharp.SKBitmap.Decode(l.ImagePath) ?? throw new InvalidOperationException("imagem ilegível");
+        var d = BitmapTrace.AlphaToPath(bmp, (byte)Math.Clamp(threshold <= 0 ? 128 : threshold, 1, 255), simplify <= 0 ? 1.5 : simplify, luma);
+        if (string.IsNullOrEmpty(d)) throw new InvalidOperationException("trace vazio — ajusta threshold/luma");
+        string nid = "";
+        Mutate(() =>
+        {
+            var layer = new Layer($"trace-{_nameSeq++}", MorphTrack.Static(d), NextColor());
+            _layers.Add(layer); _selected = _layers.Count - 1; nid = layer.Name;
+        });
+        return new { id = nid, nodes = PathEdit.Parse(d).NodeCount, contours = BitmapTrace.ContourCount(d) };
+    }
+
+    public object ApiRoto(string id, double threshold, double simplify, bool asMatte, bool invert)
+    {
+        int ix = FindLayer(id);
+        var l = Sel(id);
+        if (l.ImagePath is null) throw new InvalidOperationException("a camada não é uma imagem");
+        RotoResult r;
+        try { r = RotoTrace.FromImage(l.ImagePath, (byte)Math.Clamp(threshold <= 0 ? 128 : threshold, 1, 255), simplify <= 0 ? 1.5 : simplify); }
+        catch (Exception ex) { return new { ok = false, error = "roto: modelo em falta ou falhou — " + ex.Message }; }
+        if (string.IsNullOrEmpty(r.D)) throw new InvalidOperationException("roto vazio (sujeito não isolado)");
+        string clipId = Klip.Model.Ids.Next();
+        Mutate(() =>
+        {
+            _layers.Add(new Layer($"roto-{_nameSeq++}", MorphTrack.Static(r.D), NextColor(), Id: clipId));
+            if (asMatte) _layers[ix] = l with { MatteSourceId = clipId, Matte = invert ? MatteMode.AlphaInvert : MatteMode.AlphaNormal };
+            _selected = _layers.Count - 1;
+        });
+        return new { clip_id = clipId, nodes = PathEdit.Parse(r.D).NodeCount, contours = r.Contours, ms = r.Ms };
+    }
+
+    public object ApiSetMatte(string id, string source, string mode)
+    {
+        int ix = FindLayer(id);
+        var l = Sel(id);
+        int six = FindLayer(source);
+        if (six < 0) throw new InvalidOperationException("camada-fonte não encontrada: " + source);
+        string key = _layers[six].Key;
+        var m = (mode ?? "").ToLowerInvariant() switch
+        {
+            "alpha" or "alpha_normal" => MatteMode.AlphaNormal,
+            "alpha_invert" => MatteMode.AlphaInvert,
+            "luma" or "luma_normal" => MatteMode.LumaNormal,
+            "luma_invert" => MatteMode.LumaInvert,
+            _ => MatteMode.None,
+        };
+        Mutate(() => _layers[ix] = l with { MatteSourceId = key, Matte = m });
+        return new { id, source = key, mode = m.ToString() };
+    }
+
+    // ================= FASE 10: emissor de partículas =================
+
+    public object ApiSetParticles(string id, string? preset, double? rate, double? lifetime, double? speed,
+        double? gravity, double? spread, double? direction, double? spin, double? spawnRadius, double? particleScale,
+        double? fadeIn, double? fadeOut, string? colorA, string? colorB, int? seed)
+    {
+        int ix = FindLayer(id);
+        var l = Sel(id);
+        var p = l.Particles ?? new ParticleSpec();
+        p = (preset ?? "").ToLowerInvariant() switch
+        {
+            "confetti" => p with { Rate = Track.Const(120), Lifetime = Track.Const(1.8), Speed = Track.Const(260), SpreadDeg = Track.Const(50), Gravity = Track.Const(520), DirectionDeg = -90, SpinDegPerSec = 360, ColorA = 0xFFE4162Bu, ColorB = 0xFF2D6CDFu, ColorByLife = false, FadeOut = 0.3 },
+            "sparks" => p with { Rate = Track.Const(220), Lifetime = Track.Const(0.7), Speed = Track.Const(340), SpreadDeg = Track.Const(180), Gravity = Track.Const(700), ColorA = 0xFFFFF3B0u, ColorB = 0xFFE4162Bu, FadeOut = 0.5 },
+            "smoke" => p with { Rate = Track.Const(40), Lifetime = Track.Const(2.5), Speed = Track.Const(60), SpreadDeg = Track.Const(35), Gravity = Track.Const(-40), DirectionDeg = -90, ParticleScale = Track.Const(2.2), ColorA = 0xFF9AA0A6u, ColorB = 0xFFCED2D6u, FadeIn = 0.2, FadeOut = 0.5 },
+            "stars" => p with { Rate = Track.Const(60), Lifetime = Track.Const(1.5), Speed = Track.Const(40), SpreadDeg = Track.Const(180), Gravity = Track.Const(0), SpinDegPerSec = 120, SpawnRadius = Track.Const(60), FadeIn = 0.2, FadeOut = 0.4 },
+            _ => p,
+        };
+        if (rate.HasValue) p = p with { Rate = Track.Const(rate.Value) };
+        if (lifetime.HasValue) p = p with { Lifetime = Track.Const(lifetime.Value) };
+        if (speed.HasValue) p = p with { Speed = Track.Const(speed.Value) };
+        if (gravity.HasValue) p = p with { Gravity = Track.Const(gravity.Value) };
+        if (spread.HasValue) p = p with { SpreadDeg = Track.Const(spread.Value) };
+        if (direction.HasValue) p = p with { DirectionDeg = direction.Value };
+        if (spin.HasValue) p = p with { SpinDegPerSec = spin.Value };
+        if (spawnRadius.HasValue) p = p with { SpawnRadius = Track.Const(spawnRadius.Value) };
+        if (particleScale.HasValue) p = p with { ParticleScale = Track.Const(particleScale.Value) };
+        if (fadeIn.HasValue) p = p with { FadeIn = fadeIn.Value };
+        if (fadeOut.HasValue) p = p with { FadeOut = fadeOut.Value };
+        if (colorA != null) p = p with { ColorA = ParseColor(colorA, p.ColorA), ColorByLife = colorB != null || p.ColorByLife };
+        if (colorB != null) p = p with { ColorB = ParseColor(colorB, p.ColorB), ColorByLife = false };
+        if (seed.HasValue) p = p with { Seed = seed.Value };
+        Mutate(() => _layers[ix] = l with { Particles = p });
+        return new { ok = true, id, preset = preset ?? "" };
+    }
+
+    public object ApiClearParticles(string id)
+    {
+        int ix = FindLayer(id);
+        var l = Sel(id);
+        Mutate(() => _layers[ix] = l with { Particles = null });
+        return new { ok = true };
+    }
+
     public object ApiExportLottie(string path)
     {
         var (exported, skipped) = LottieExporter.Export(BuildComp(), path);
@@ -1766,7 +2062,7 @@ public partial class MainWindow : Window
         _histIx = _hist.Count - 1;
     }
 
-    private void Mutate(Action act) { act(); PushHistory(); Refresh(); }
+    private void Mutate(Action act) { act(); EnsureIds(); PushHistory(); Refresh(); }
 
     // ---------------- coords ----------------
     private (double scale, double offX, double offY) Fit() => (_vs, _vox, _voy);
@@ -2333,7 +2629,15 @@ public partial class MainWindow : Window
         return fallback;
     }
 
-    private int FindLayer(string id) => _layers.FindIndex(l => l.Name == id);
+    private int FindLayer(string id) => PropRegistry.Find(_layers, id);   // Id estável primeiro, Name como fallback
+
+    /// <summary>Atribui um Id estável a camadas que ainda não têm (aponta-e-instrui, endereçamento).</summary>
+    private void EnsureIds()
+    {
+        for (int i = 0; i < _layers.Count; i++)
+            if (string.IsNullOrEmpty(_layers[i].Id))
+                _layers[i] = _layers[i] with { Id = Ids.Next() };
+    }
 
     private Layer Sel(string id)
     {
@@ -2357,6 +2661,7 @@ public partial class MainWindow : Window
     public object ApiListItems() => _layers.Select(l => new
     {
         id = l.Name,
+        layer_id = l.Key,          // Id estável endereçável (aponta-e-instrui / IA)
         x = l.PosX?.Eval(0) ?? 0,
         y = l.PosY?.Eval(0) ?? 0,
         scale = l.Scale?.Eval(0) ?? 1.0,
@@ -2385,11 +2690,13 @@ public partial class MainWindow : Window
         return new { id = name };
     }
 
-    public object ApiInsertText(string text, double size, string? fill, double x, double y)
+    public object ApiInsertText(string text, double size, string? fill, double x, double y, string? family = null)
     {
-        var d = TextShape.TextPathD(text, (float)size)
+        var tf = FontRegistry.Shared.Resolve(string.IsNullOrWhiteSpace(family) ? _defaultFamily : family, bold: true);
+        var d = TextShape.TextPathD(text, (float)size, tf)
             ?? throw new InvalidOperationException("texto vazio/inválido");
         var name = $"texto-{_nameSeq++}";
+        _textMeta[name] = (text, (float)size);
         Mutate(() =>
         {
             _layers.Add(new Layer(name, MorphTrack.Static(d), ParseColor(fill, 0xFF232326),
@@ -2397,6 +2704,89 @@ public partial class MainWindow : Window
             _selected = _layers.Count - 1;
         });
         return new { id = name };
+    }
+
+    /// <summary>Carrega/baixa uma fonte (nome→Google Fonts, caminho .ttf, ou URL) e regista-a p/ uso.</summary>
+    public object ApiLoadFont(string spec)
+    {
+        var r = Task.Run(() => FontRegistry.Shared.LoadAsync(spec)).GetAwaiter().GetResult();
+        return new { family = r.Family, source = r.Source, cached = r.CachePath, from_cache = r.FromCache };
+    }
+
+    /// <summary>Muda a fonte de uma camada de texto (re-bake) OU, sem id, a fonte por omissão.</summary>
+    public object ApiSetFont(string? id, string family)
+    {
+        if (string.IsNullOrWhiteSpace(id)) { _defaultFamily = family; return new { ok = true, default_family = family }; }
+        if (!_textMeta.TryGetValue(id!, out var meta))
+            throw new InvalidOperationException($"camada '{id}' não é texto criado nesta sessão (sem meta p/ re-bake)");
+        var tf = FontRegistry.Shared.Resolve(family, bold: true);
+        var d = TextShape.TextPathD(meta.text, meta.size, tf) ?? throw new InvalidOperationException("re-bake falhou");
+        int ix = FindLayer(id!);
+        if (ix < 0) throw new InvalidOperationException($"camada '{id}' não existe");
+        Mutate(() => _layers[ix] = _layers[ix] with { Shape = MorphTrack.Static(d) });
+        return new { ok = true, id, family };
+    }
+
+    // ===== Fase 3: z-index + duplicar-com-keyframes =====
+    /// <summary>Reordena a camada (z-index). A ordem da lista = ordem de desenho (fim = topo).</summary>
+    public object ApiReorder(string id, string mode)
+    {
+        int ix = FindLayer(id);
+        if (ix < 0) throw new InvalidOperationException($"camada '{id}' não existe");
+        Mutate(() =>
+        {
+            var l = _layers[ix];
+            _layers.RemoveAt(ix);
+            int ni = mode.ToLowerInvariant() switch
+            {
+                "front" or "bring_to_front" or "top" => _layers.Count,       // fim da lista = topo do stack
+                "back" or "send_to_back" or "bottom" => 0,
+                "forward" or "up" => System.Math.Min(_layers.Count, ix + 1),
+                "backward" or "down" => System.Math.Max(0, ix - 1),
+                _ => throw new InvalidOperationException("mode: front|back|forward|backward"),
+            };
+            _layers.Insert(ni, l);
+            _selected = ni;
+        });
+        return new { ok = true, id, mode };
+    }
+
+    /// <summary>Duplica uma camada COM todos os keyframes/animação (record with → Tracks partilhadas imutáveis).</summary>
+    public object ApiDuplicate(string id)
+    {
+        int ix = FindLayer(id);
+        if (ix < 0) throw new InvalidOperationException($"camada '{id}' não existe");
+        var src = _layers[ix];
+        var name = $"{src.Name}-copy-{_nameSeq++}";
+        var dup = src with { Name = name, Id = Ids.Next() };
+        if (_textMeta.TryGetValue(src.Name, out var meta)) _textMeta[name] = meta;   // clone de texto herda a meta
+        Mutate(() => { _layers.Insert(ix + 1, dup); _selected = ix + 1; });
+        return new { id = name };
+    }
+
+    // ===== Fase 4: stagger — a mesma animação a N camadas com desfasamento no tempo =====
+    /// <summary>Aplica keyframes from→to a cada camada, cada uma atrasada offset*i. Funciona p/ qualquer
+    /// propriedade (incl. cor via #hex). É o clássico stagger — 80% do trabalho manual num verbo.</summary>
+    public object ApiStagger(string[] ids, string path, string from, string to, double duration, double offset, string ease = "linear")
+    {
+        var e = ParseEase(ease);
+        var pvFrom = ParsePropValue(path, from);
+        var pvTo = ParsePropValue(path, to);
+        int applied = 0;
+        Mutate(() =>
+        {
+            for (int i = 0; i < ids.Length; i++)
+            {
+                int ix = FindLayer(ids[i]);
+                if (ix < 0) continue;
+                double delay = i * offset;
+                var l = PropRegistry.AddKeyframe(_layers[ix], path, delay, pvFrom, e);
+                l = PropRegistry.AddKeyframe(l, path, delay + duration, pvTo, e);
+                _layers[ix] = l;
+                applied++;
+            }
+        });
+        return new { ok = true, applied, path };
     }
 
     public object ApiInsertPath(string d, string? fill)
@@ -2554,6 +2944,56 @@ public partial class MainWindow : Window
         });
         return new { ok = true, prop, time, value };
     }
+
+    // ===== Fase 1: sistema de propriedades UNIFORME — endereça QUALQUER prop (incl. COR) por path =====
+    private static PropValue ParsePropValue(string path, string value)
+    {
+        if (!PropRegistry.TryGet(path, out var d))
+            throw new InvalidOperationException("propriedade desconhecida: " + path);
+        return d.Kind == ChannelKind.Color
+            ? PropValue.Of(ParseColor(value, 0xFF000000))
+            : PropValue.Of(double.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>Keyframe GENÉRICO em qualquer propriedade (escalar OU cor). value = número ou "#RRGGBB".</summary>
+    public object ApiSetKeyframe(string id, string path, double time, string value, string ease = "linear", string? bez = null)
+    {
+        int ix = FindLayer(id); var l = Sel(id);
+        var pv = ParsePropValue(path, value);
+        Mutate(() => _layers[ix] = PropRegistry.AddKeyframe(l, path, time, pv, ParseEase(ease), ParseBez(bez)));
+        return new { ok = true, id, path, time };
+    }
+
+    /// <summary>Valor ESTÁTICO de qualquer propriedade (colapsa o canal). value = número ou "#RRGGBB".</summary>
+    public object ApiSetProp(string id, string path, string value)
+    {
+        int ix = FindLayer(id); var l = Sel(id);
+        var pv = ParsePropValue(path, value);
+        Mutate(() => _layers[ix] = PropRegistry.SetStatic(l, path, pv));
+        return new { ok = true, id, path };
+    }
+
+    /// <summary>Lê o valor de qualquer propriedade no tempo t (escalar ou cor).</summary>
+    public object ApiGetProp(string id, string path, double t = 0)
+    {
+        var v = PropRegistry.GetValue(Sel(id), path, t);
+        return v.Kind == ChannelKind.Color
+            ? new { kind = "color", color = "#" + (v.Argb & 0xFFFFFF).ToString("X6") }
+            : (object)new { kind = "scalar", value = v.Scalar };
+    }
+
+    public object ApiRemoveKeyframe(string id, string path, double time)
+    {
+        int ix = FindLayer(id); var l = Sel(id);
+        Mutate(() => _layers[ix] = PropRegistry.RemoveKeyframe(l, path, time));
+        return new { ok = true };
+    }
+
+    /// <summary>Lista todas as propriedades animáveis endereçáveis da camada (descoberta p/ a IA).</summary>
+    public object ApiListProps(string id)
+        => PropRegistry.Describe(Sel(id))
+            .Select(p => new { path = p.path, kind = p.kind.ToString().ToLowerInvariant(), animated = p.animated })
+            .ToArray();
 
     /// <summary>Ponto-âncora (pivô de rotação/escala) em coords locais da forma.</summary>
     public object ApiSetAnchor(string id, double x, double y)

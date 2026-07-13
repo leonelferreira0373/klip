@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    KLIP E2E TEST HARNESS: console runner (headless, no GUI). Roda com
+    'dotnet run project Klip.Tests'. Exit code 0 = tudo passou, 1 = falhas (CI).
+    Espelha o setup PROVADO do Klip.Milestone (SkiaSharp.NativeAssets.Win32) para
+    renderizar frames reais sem GPU/janela. ZERO fakes: cada teste renderiza um
+    Comp de verdade e le PIXELS do frame. Para ligar o teste de aceitacao forte
+    de cor keyframada, adiciona a constante KLIP_COLOR_KF em DefineConstants.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- runner determinístico, single-thread; sem paralelismo de GPU -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Fase 1 aterrou: cor-como-canal (ColorTrack) ligada → teste de aceitação forte activo -->
+    <DefineConstants>$(DefineConstants);KLIP_COLOR_KF</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Klip.Engine\Klip.Engine.csproj" />
+    <ProjectReference Include="..\Klip.Model\Klip.Model.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- native raster do Skia p/ correr headless em Windows (igual ao Milestone) -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.150.0" />
+  </ItemGroup>
+
+</Project>
