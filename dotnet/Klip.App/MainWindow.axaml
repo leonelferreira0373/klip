@@ -12,6 +12,7 @@
         FontWeight="SemiBold"
         DragDrop.AllowDrop="True"
         WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
         SystemDecorations="BorderOnly">
     <Window.Styles>
         <!-- botões da sidebar: micro-animações suaves (nunca snappy) -->

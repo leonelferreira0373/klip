@@ -42,12 +42,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // §Janela — arranca "maximizada" à mão. Porquê à mão e não WindowState.Maximized:
-        // com BorderOnly o maximizar do SO transborda a moldura para fora do ecrã e o shell
-        // trata a janela como fullscreen — e deixa de revelar a barra de tarefas em auto-esconder.
-        // (ExtendClientArea no Avalonia 12/Win32 = decorações DESENHADAS: uma segunda title bar
-        // por cima da nossa. Testado; rejeitado.)
-        Opened += (_, _) => FillWorkArea();
+
 
 
         // arranca VAZIO num artboard branco (sem estrela/acento nem fundo creme)
@@ -1265,57 +1260,10 @@ public partial class MainWindow : Window
         if (e.ClickCount == 2) { OnMaxRestore(null, new RoutedEventArgs()); return; }
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) BeginMoveDrag(e);
     }
-    private bool _cheia;   // true = a preencher o ecrã (o nosso "maximizado")
-
-    /// <summary>Preenche o ecrã de trabalho. Width/Height no Avalonia são a ÁREA DE CLIENTE e o SO
-    /// soma a moldura invisível por fora (medido: +15px), por isso mede-se FrameSize−ClientSize
-    /// depois do primeiro layout e desconta-se. Deixam-se 3px livres no fundo — é o que permite ao
-    /// Windows voltar a revelar a barra de tarefas em auto-esconder sobre uma janela borderless.</summary>
-    private void FillWorkArea()
-    {
-        var scr = Screens.ScreenFromWindow(this) ?? Screens.Primary;
-        if (scr is null) return;
-        var wa = scr.WorkingArea;
-        var k = scr.Scaling <= 0 ? 1.0 : scr.Scaling;
-        WindowState = WindowState.Normal;
-        Position = new PixelPoint(wa.X, wa.Y);
-        Width = wa.Width / k;
-        Height = wa.Height / k - 3;
-        _cheia = true;
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            if (!_cheia || FrameSize is not { } fs) return;
-            double fw = fs.Width - ClientSize.Width, fh = fs.Height - ClientSize.Height;
-            if (fw > 0.5) Width  = Math.Max(600, wa.Width  / k - fw);
-            if (fh > 0.5) Height = Math.Max(400, wa.Height / k - fh - 3);
-        }, Avalonia.Threading.DispatcherPriority.Background);
-    }
-
     private void OnMinimize(object? s, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void OnMaxRestore(object? s, RoutedEventArgs e)
-    {
-        if (_cheia)
-        {
-            _cheia = false;
-            var scr = Screens.ScreenFromWindow(this) ?? Screens.Primary;
-            var k = scr is null || scr.Scaling <= 0 ? 1.0 : scr.Scaling;
-            // 1320 lógicos a 150% = 1980 físicos — MAIOR que um ecrã 1920. Era o "torto":
-            // o restaurar produzia uma janela maior que o monitor, com o ✕ fora do ecrã.
-            // O restaurado é sempre 85% da área de trabalho, caiba o ecrã que couber.
-            double w = 1320, h = 860;
-            if (scr is not null)
-            {
-                w = Math.Min(w, scr.WorkingArea.Width  / k * 0.85);
-                h = Math.Min(h, scr.WorkingArea.Height / k * 0.85);
-            }
-            Width = w; Height = h;
-            if (scr is not null)
-                Position = new PixelPoint(
-                    scr.WorkingArea.X + (int)Math.Max(0, (scr.WorkingArea.Width  - w * k) / 2),
-                    scr.WorkingArea.Y + (int)Math.Max(0, (scr.WorkingArea.Height - h * k) / 2));
-        }
-        else FillWorkArea();
-    }
+        => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
     private void OnCloseWindow(object? s, RoutedEventArgs e) => Close();
 
     /// <summary>Nova composição: 2ª janela KLIP INDEPENDENTE (doc + IA + bus próprios), lado a lado.</summary>

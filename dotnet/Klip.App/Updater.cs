@@ -14,7 +14,7 @@ namespace Klip.App;
 /// </summary>
 public static class Updater
 {
-    public const string CurrentVersion = "1.0.3";
+    public const string CurrentVersion = "1.0.4";
     private const string LatestApi = "https://api.github.com/repos/leonelferreira0373/klip/releases/latest";
     private const string AssetName = "KLIP-Animator.exe";
     private const string ExeName = "KLIP Animator.exe";

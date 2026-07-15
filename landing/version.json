@@ -1,12 +1,18 @@
 {
   "latest": {
-    "version": "1.0.3",
+    "version": "1.0.4",
     "date": "2026-07-15",
-    "md5": "29dacca2ea95ad2fc7108446ee01ba45",
-    "notes": "BETA social: botão de reclamações (folha semanal, consentimento explícito), tutorial de 3 cartões na 1ª utilização (revê no ⓘ), dot de descoberta nos créditos. Créditos em ~tokens (número único). Corrigido: envio de comprovativo in-app (multipart), janela abre a ocupar o ecrã sem tapar a barra de tarefas, restauro correcto em ecrãs 150%, config ai.json escrita atómica (a chave BYOK já não se perde).",
+    "md5": "020ccd8f98bb8981e406ac28ed23a9e0",
+    "notes": "Janela: abre maximizada a sério (WindowState nativo) — sem segunda barra de título nem ícones duplicados. Botão ⓘ para rever a introdução. Créditos em ~tokens (número único). Corrigido: envio de comprovativo in-app (multipart com aspas), escrita atómica do ai.json (a chave BYOK já não se perde num ficheiro corrompido), fuga de teclas por trás do paywall.",
     "url": "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe"
   },
   "history": [
+    {
+      "version": "1.0.4",
+      "date": "2026-07-15",
+      "md5": "020ccd8f98bb8981e406ac28ed23a9e0",
+      "notes": "Janela: abre maximizada a sério (WindowState nativo) — sem segunda barra de título nem ícones duplicados. Botão ⓘ para rever a introdução. Créditos em ~tokens (número único). Corrigido: envio de comprovativo in-app (multipart com aspas), escrita atómica do ai.json (a chave BYOK já não se perde num ficheiro corrompido), fuga de teclas por trás do paywall."
+    },
     {
       "version": "1.0.3",
       "date": "2026-07-15",
