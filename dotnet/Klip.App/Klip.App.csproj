@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+    <AvaloniaResource Include="Assets\*.png" />
   </ItemGroup>
 
   <!-- Whisper win-x64 nativas embutidas (o pacote NÃO as copia p/ single-file): extraídas em runtime -->

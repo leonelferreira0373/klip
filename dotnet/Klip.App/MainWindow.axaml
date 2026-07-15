@@ -149,8 +149,8 @@
           <Button x:Name="CreditsBtn" Classes="wbtn" Click="OnOpenPayment"
                   ToolTip.Tip="Créditos / pagamento (comprovativo)" Foreground="#6D5EF6" FontSize="13">
             <Grid>
-              <TextBlock Text="◆" FontSize="13" Foreground="#6D5EF6"
-                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <Image Source="avares://Klip.App/Assets/sub.png" Width="19" Height="19"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
               <Border x:Name="CreditsDot" Width="7" Height="7" CornerRadius="3.5" Background="#E0245E"
                       HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-7,0"
                       IsVisible="False" ToolTip.Tip="Novo aqui: os créditos vivem neste botão"/>
@@ -576,8 +576,13 @@
           <!-- O ÍCONE é o conteúdo. O texto é a legenda. -->
           <Border Width="104" Height="104" CornerRadius="52" Background="#EEEDFE"
                   HorizontalAlignment="Center" Margin="0,6,0,20">
-            <TextBlock x:Name="TutIcon" Text="K" FontSize="44" FontWeight="Bold" Foreground="#6D5EF6"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Grid>
+              <TextBlock x:Name="TutIcon" Text="K" FontSize="44" FontWeight="Bold" Foreground="#6D5EF6"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <!-- o cartão dos créditos é uma imagem, não um glifo: mostra-se um OU outro -->
+              <Image x:Name="TutIconImg" Source="avares://Klip.App/Assets/sub.png" Width="54" Height="54"
+                     IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
           </Border>
 
           <TextBlock x:Name="TutTitle" Text="Bem-vindo ao KLIP" FontSize="19" FontWeight="Bold"

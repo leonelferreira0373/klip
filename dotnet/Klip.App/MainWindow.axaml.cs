@@ -1084,7 +1084,7 @@ public partial class MainWindow : Window
     {
         ("K", "Bem-vindo ao KLIP", "Animação vetorial — do esboço ao vídeo, na mesma tela."),
         ("✦", "Tens IA lá dentro", "Escreve o que queres. Ela desenha e anima por ti."),
-        ("◆", "Pagas por créditos", "A IA gasta créditos. Carregas em ◆, aqui em cima."),
+        ("$", "Pagas por créditos", "A IA gasta créditos. Carregas no cartão, aqui em cima."),
     };
     private int _tutStep;
 
@@ -1107,8 +1107,12 @@ public partial class MainWindow : Window
     private void RenderTutorial()
     {
         var c = TutCards[_tutStep];
+        // O card dos créditos usa a imagem do cartão (o mesmo da barra); os outros usam glifo.
+        bool cartao = c.icon == "$";
+        TutIconImg.IsVisible = cartao;
+        TutIcon.IsVisible = !cartao;
         TutIcon.Text = c.icon;
-        TutIcon.FontSize = _tutStep == 0 ? 44 : 50;   // o K é uma letra; ✦/◆ pedem mais corpo
+        TutIcon.FontSize = _tutStep == 0 ? 44 : 50;   // o K é uma letra; o ✦ pede mais corpo
         TutTitle.Text = c.title;
         TutText.Text = c.text;
 
