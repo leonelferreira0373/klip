@@ -54,6 +54,11 @@ cd "$ROOT/landing"
 DEP=$(vercel deploy --prod --yes 2>&1 | grep -oE "https://[a-z0-9-]+\.vercel\.app" | tail -1)
 [ -n "$DEP" ] && vercel alias set "$DEP" klipstudio.vercel.app >/dev/null 2>&1
 
+# O KLIP-Animator.exe só existe porque o GitHub não gosta de espaços no nome do asset.
+# Já foi enviado — deixá-lo aqui punha DOIS KLIPs na pasta do Leonel a cada release, e ele
+# acabava a abrir o errado. A pasta instalada tem UM app; o resto vive na release.
+rm -f "$OUT/KLIP-Animator.exe"
+
 echo ""
 echo "DONE v$VERSION · MD5 $MD5"
 echo "  site:    https://klipstudio.vercel.app"
