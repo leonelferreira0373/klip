@@ -42,6 +42,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        // §Janela — arranca "maximizada" à mão. Porquê à mão e não WindowState.Maximized:
+        // com BorderOnly o maximizar do SO transborda a moldura para fora do ecrã e o shell
+        // trata a janela como fullscreen — e deixa de revelar a barra de tarefas em auto-esconder.
+        // (ExtendClientArea no Avalonia 12/Win32 = decorações DESENHADAS: uma segunda title bar
+        // por cima da nossa. Testado; rejeitado.)
+        Opened += (_, _) => FillWorkArea();
+
+
         // arranca VAZIO num artboard branco (sem estrela/acento nem fundo creme)
 
         // handlers no CONTENTOR (sempre dimensionado) — a Image só ganha tamanho depois de ter Source
@@ -123,6 +131,10 @@ public partial class MainWindow : Window
         {
             ChatCard.Opacity = 1;
             ChatCard.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(0px)");
+
+            // §BETA primeira utilização — depois do layout assentar: tutorial de 3 cards + dot no ◆
+            CreditsDot.IsVisible = !Onboarding.HasSeenPayments;
+            if (!Onboarding.HasSeenTutorial) ShowTutorial();
         }, Avalonia.Threading.DispatcherPriority.Background);
     }
 
@@ -810,12 +822,20 @@ public partial class MainWindow : Window
         return u.EndsWith("/ai") ? u[..^3] : u;
     }
 
-    /// <summary>Aproximação de iterações a partir de Kz (custos reais: Opus $25/1M, Haiku $5/1M output; ~8k tok/iter).</summary>
-    private static string IterLabel(double kz)
+    /// <summary>UM número, não um intervalo. Taxa mista $10/1M de output (entre Opus $25 e
+    /// Haiku $5) — aproximado de propósito, daí o ~. 40 000 Kz → ~2 M tokens.</summary>
+    private static string TokenLabel(double kz)
     {
-        double usd = kz / 2000.0;
-        long lo = (long)Math.Round(usd / 25 * 1e6 / 8000), hi = (long)Math.Round(usd / 5 * 1e6 / 8000);
-        return $"~{lo:N0}–{hi:N0} iterações";
+        double tokens = kz / 2000.0 / 10.0 * 1e6;
+        return $"~{Compacto(tokens)} tokens";
+    }
+
+    /// <summary>"2 000 000" não se lê; "2 M" lê-se.</summary>
+    private static string Compacto(double n)
+    {
+        if (n >= 1e6) { double m = n / 1e6; return (m >= 10 ? $"{m:0}" : $"{m:0.#}").Replace('.', ',') + " M"; }
+        if (n >= 1e3) { double k = n / 1e3; return (k >= 10 ? $"{k:0}" : $"{k:0.#}").Replace('.', ',') + " k"; }
+        return $"{n:0}";
     }
 
     private void OnErrLogToggle(object? s, RoutedEventArgs e)
@@ -844,6 +864,10 @@ public partial class MainWindow : Window
         PaymentStatus.Text = "";
         _selectedPlanKz = 200000; HighlightPlan(PlanB);
         PaymentPanel.IsVisible = true;
+        // §BETA: já viu os pagamentos → o dot de descoberta some para sempre. Aqui dentro (e não no
+        // handler do clique) porque o evento "nocredits" também abre o paywall sozinho.
+        Onboarding.HasSeenPayments = true;
+        CreditsDot.IsVisible = false;
         _ = RefreshBalance();
     }
 
@@ -903,7 +927,7 @@ public partial class MainWindow : Window
             var resp = await _pay.PostAsync(url, body);
             var n = System.Text.Json.Nodes.JsonNode.Parse(await resp.Content.ReadAsStringAsync());
             var bal = n?["balanceUsd"]?.GetValue<double>() ?? n?["balance_usd"]?.GetValue<double>() ?? 0;
-            PaymentBalance.Text = "Saldo: " + (bal <= 0 ? "0 iterações" : IterLabel(bal * 2000));
+            PaymentBalance.Text = "Saldo: " + (bal <= 0 ? "0 tokens" : TokenLabel(bal * 2000));
         }
         catch { PaymentBalance.Text = "Saldo: — (offline)"; }
     }
@@ -925,12 +949,21 @@ public partial class MainWindow : Window
             await using var stream = await files[0].OpenReadAsync();
             using var mem = new System.IO.MemoryStream();
             await stream.CopyToAsync(mem);
-            using var content = new System.Net.Http.MultipartFormDataContent
-            {
-                { new System.Net.Http.ByteArrayContent(mem.ToArray()), "file", "comprovativo.pdf" },
-                { new System.Net.Http.StringContent(email), "email" },
-                { new System.Net.Http.StringContent("KLIP"), "product" },
-            };
+            // O MultipartFormDataContent do .NET escreve `name=file` SEM aspas quando o valor é um
+            // token válido; o parser de formData() da Cloudflare exige `name="file"` e responde
+            // "Content-Disposition header in FormData part is missing a name". Aspas explícitas.
+            using var content = new System.Net.Http.MultipartFormDataContent();
+            var filePart = new System.Net.Http.ByteArrayContent(mem.ToArray());
+            filePart.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data")
+            { Name = "\"file\"", FileName = "\"comprovativo.pdf\"" };
+            filePart.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+            content.Add(filePart);
+            var emailPart = new System.Net.Http.StringContent(email);
+            emailPart.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data") { Name = "\"email\"" };
+            content.Add(emailPart);
+            var prodPart = new System.Net.Http.StringContent("KLIP");
+            prodPart.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data") { Name = "\"product\"" };
+            content.Add(prodPart);
             var url = WorkerRoot() + "/comprovativo";
             var resp = await _pay.PostAsync(url, content);
             var n = System.Text.Json.Nodes.JsonNode.Parse(await resp.Content.ReadAsStringAsync());
@@ -938,9 +971,9 @@ public partial class MainWindow : Window
             {
                 var usd = n["creditsUsd"]?.GetValue<double>() ?? 0;
                 var bal = n["balanceUsd"]?.GetValue<double>() ?? 0;
-                PaymentStatus.Text = $"✓ Creditado (+{IterLabel(usd * 2000)}). Recebeste a fatura por email. Obrigado!";
-                PaymentBalance.Text = "Saldo: " + IterLabel(bal * 2000);
-                AppendChat("·", "créditos carregados — saldo " + IterLabel(bal * 2000));
+                PaymentStatus.Text = $"✓ Creditado (+{TokenLabel(usd * 2000)}). Recebeste a fatura por email. Obrigado!";
+                PaymentBalance.Text = "Saldo: " + TokenLabel(bal * 2000);
+                AppendChat("·", "créditos carregados — saldo " + TokenLabel(bal * 2000));
             }
             else
             {
@@ -952,6 +985,155 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) { PaymentStatus.Text = "✗ erro: " + ex.Message; }
         finally { PaymentSendBtn.IsEnabled = true; }
+    }
+
+    // ================= RECLAMAÇÕES §BETA (logon leve + consentimento → worker FK) =================
+
+    private void OnOpenComplaint(object? s, RoutedEventArgs e)
+    {
+        // logon leve: nome + email escrevem-se UMA vez; nas próximas já vêm preenchidos
+        if (string.IsNullOrWhiteSpace(ComplaintName.Text))
+            ComplaintName.Text = Ai.AiConfig.GetProfile("display_name") ?? "";
+        if (string.IsNullOrWhiteSpace(ComplaintEmail.Text))
+            ComplaintEmail.Text = Ai.AiConfig.ResolveEmail();
+        ComplaintStatus.Text = "";
+        ComplaintPanel.IsVisible = true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(
+            () => (string.IsNullOrWhiteSpace(ComplaintName.Text) ? ComplaintName : ComplaintMsg).Focus(),
+            Avalonia.Threading.DispatcherPriority.Input);
+    }
+
+    private void OnCloseComplaint(object? s, RoutedEventArgs e) => ComplaintPanel.IsVisible = false;
+    private void OnComplaintBackdrop(object? s, PointerPressedEventArgs e) => ComplaintPanel.IsVisible = false;
+    private void OnComplaintCardPressed(object? s, PointerPressedEventArgs e) => e.Handled = true;
+
+    /// <summary>Validação real (o `Contains('@')` do paywall deixa passar "@" e "a@b").</summary>
+    private static bool ValidEmail(string e)
+    {
+        if (e.Length < 5 || e.Contains(' ')) return false;
+        var at = e.IndexOf('@');
+        if (at <= 0 || at != e.LastIndexOf('@') || at == e.Length - 1) return false;
+        var dom = e[(at + 1)..];
+        return dom.Contains('.') && !dom.StartsWith('.') && !dom.EndsWith('.') && dom.Length >= 3;
+    }
+
+    private void ComplaintSay(string text, Avalonia.Media.IBrush brush)
+    { ComplaintStatus.Text = text; ComplaintStatus.Foreground = brush; }
+
+    private async void OnSubmitComplaint(object? s, RoutedEventArgs e)
+    {
+        var name = (ComplaintName.Text ?? "").Trim();
+        var email = (ComplaintEmail.Text ?? "").Trim();
+        var msg = (ComplaintMsg.Text ?? "").Trim();
+
+        // validação ANTES do POST — nada sai daqui inválido
+        if (name.Length == 0) { ComplaintSay("Escreve o teu nome primeiro.", Red()); return; }
+        if (!ValidEmail(email)) { ComplaintSay("Esse email não parece válido — confirma o endereço.", Red()); return; }
+        if (msg.Length == 0) { ComplaintSay("Escreve a tua reclamação — o campo está vazio.", Red()); return; }
+
+        // o "logon" fica guardado (mesmas chaves do perfil — não duplica estado)
+        Ai.AiConfig.SetProfile("display_name", name);
+        Ai.AiConfig.SetProfile("klip_email", email);
+        LoadProfile();   // mantém o flyout da conta em sincronia
+
+        var consent = ComplaintConsent.IsChecked == true;
+        var cat = (ComplaintCat.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "geral";
+
+        ComplaintSendBtn.IsEnabled = false;
+        ComplaintSay("A enviar…", Gray());
+
+        // SEM consentimento não se recolhe nada. COM consentimento, recolhe-se fora da UI thread.
+        try
+        {
+            System.Text.Json.Nodes.JsonObject? machine = null, usage = null;
+            if (consent)
+            {
+                var mode = _aiSelection; var layers = _layers.Count;
+                machine = await Task.Run(() => Complaints.Machine());
+                usage = await Task.Run(() => Complaints.Usage(mode, layers));
+            }
+
+            var (ok, info) = await Complaints.SubmitAsync(WorkerRoot(), name, email, cat, msg, consent, machine, usage);
+            if (ok)
+            {
+                // A folha é nossa e a data é constante, mas `info` vem do fio: limita-se o que se pinta.
+                string quando = string.IsNullOrWhiteSpace(info) || info.Length > 40 ? "quinta-feira 08:00" : info;
+                ComplaintSay($"✓ Recebida. Entra na folha desta semana — entrega {quando}.", Green());
+                ComplaintMsg.Text = "";
+                OpLog.Op("COMPLAINT", $"enviada · categoria={cat} · diagnóstico={(consent ? "sim" : "não")}");
+            }
+            else ComplaintSay($"✗ Não foi enviada ({info}). O teu texto continua aqui — tenta outra vez.", Red());
+        }
+        catch (Exception ex)
+        {
+            // async void sem catch = crash do processo. E sem o finally o botão ficava trancado para sempre.
+            ComplaintSay($"✗ Não foi enviada ({ex.Message}). O teu texto continua aqui — tenta outra vez.", Red());
+        }
+        finally { ComplaintSendBtn.IsEnabled = true; }
+    }
+
+    // ================= TUTORIAL 1ª utilização §BETA (3 cards) =================
+
+    /// <summary>3 cards, nada mais. O ícone é grande e carrega o significado; o texto é a legenda.
+    /// Glifos reaproveitados da própria app: K (o chip da title bar), ✦ (KLIP AI), ◆ (créditos).</summary>
+    private static readonly (string icon, string title, string text)[] TutCards =
+    {
+        ("K", "Bem-vindo ao KLIP", "Animação vetorial — do esboço ao vídeo, na mesma tela."),
+        ("✦", "Tens IA lá dentro", "Escreve o que queres. Ela desenha e anima por ti."),
+        ("◆", "Pagas por créditos", "A IA gasta créditos. Carregas em ◆, aqui em cima."),
+    };
+    private int _tutStep;
+
+    /// <summary>ⓘ na title bar — rever a introdução quando se quiser (ShowTutorial já faz reset).</summary>
+    private void OnReplayTutorial(object? s, RoutedEventArgs e) => ShowTutorial();
+
+    private void ShowTutorial()
+    {
+        _tutStep = 0;
+        RenderTutorial();
+        TutorialPanel.IsVisible = true;
+        // marcado ao MOSTRAR: se a app fechar a meio, não volta a chatear (nem noutra composição)
+        Onboarding.HasSeenTutorial = true;
+        // foco no cartão: o Avalonia só entrega teclas NÃO tratadas ao Window, e se o foco ficasse
+        // na caixa do chat (por trás) o Esc/setas nunca cá chegavam. Post: só focar depois de visível.
+        Avalonia.Threading.Dispatcher.UIThread.Post(
+            () => TutNext.Focus(), Avalonia.Threading.DispatcherPriority.Input);
+    }
+
+    private void RenderTutorial()
+    {
+        var c = TutCards[_tutStep];
+        TutIcon.Text = c.icon;
+        TutIcon.FontSize = _tutStep == 0 ? 44 : 50;   // o K é uma letra; ✦/◆ pedem mais corpo
+        TutTitle.Text = c.title;
+        TutText.Text = c.text;
+
+        var dots = new[] { TutDot0, TutDot1, TutDot2 };
+        for (int i = 0; i < dots.Length; i++)
+            dots[i].Background = new Avalonia.Media.SolidColorBrush(
+                Avalonia.Media.Color.Parse(i == _tutStep ? "#6D5EF6" : "#ECECEA"));
+
+        TutBack.IsEnabled = _tutStep > 0;
+        TutNext.Content = _tutStep == TutCards.Length - 1 ? "Começar" : "Seguinte";
+    }
+
+    private void OnTutorialNext(object? s, RoutedEventArgs e)
+    {
+        if (_tutStep >= TutCards.Length - 1) { CloseTutorial(); return; }
+        _tutStep++; RenderTutorial();
+    }
+
+    private void OnTutorialBack(object? s, RoutedEventArgs e)
+    { if (_tutStep > 0) { _tutStep--; RenderTutorial(); } }
+
+    private void OnSkipTutorial(object? s, RoutedEventArgs e) => CloseTutorial();
+    private void OnTutorialBackdrop(object? s, PointerPressedEventArgs e) => CloseTutorial();
+    private void OnTutorialCardPressed(object? s, PointerPressedEventArgs e) => e.Handled = true;
+
+    private void CloseTutorial()
+    {
+        TutorialPanel.IsVisible = false;
+        Onboarding.HasSeenTutorial = true;
     }
 
     // ================= TIMELINE EDITOR (keyframes + scrub) =================
@@ -1083,9 +1265,57 @@ public partial class MainWindow : Window
         if (e.ClickCount == 2) { OnMaxRestore(null, new RoutedEventArgs()); return; }
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) BeginMoveDrag(e);
     }
+    private bool _cheia;   // true = a preencher o ecrã (o nosso "maximizado")
+
+    /// <summary>Preenche o ecrã de trabalho. Width/Height no Avalonia são a ÁREA DE CLIENTE e o SO
+    /// soma a moldura invisível por fora (medido: +15px), por isso mede-se FrameSize−ClientSize
+    /// depois do primeiro layout e desconta-se. Deixam-se 3px livres no fundo — é o que permite ao
+    /// Windows voltar a revelar a barra de tarefas em auto-esconder sobre uma janela borderless.</summary>
+    private void FillWorkArea()
+    {
+        var scr = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        if (scr is null) return;
+        var wa = scr.WorkingArea;
+        var k = scr.Scaling <= 0 ? 1.0 : scr.Scaling;
+        WindowState = WindowState.Normal;
+        Position = new PixelPoint(wa.X, wa.Y);
+        Width = wa.Width / k;
+        Height = wa.Height / k - 3;
+        _cheia = true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (!_cheia || FrameSize is not { } fs) return;
+            double fw = fs.Width - ClientSize.Width, fh = fs.Height - ClientSize.Height;
+            if (fw > 0.5) Width  = Math.Max(600, wa.Width  / k - fw);
+            if (fh > 0.5) Height = Math.Max(400, wa.Height / k - fh - 3);
+        }, Avalonia.Threading.DispatcherPriority.Background);
+    }
+
     private void OnMinimize(object? s, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void OnMaxRestore(object? s, RoutedEventArgs e)
-        => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    {
+        if (_cheia)
+        {
+            _cheia = false;
+            var scr = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+            var k = scr is null || scr.Scaling <= 0 ? 1.0 : scr.Scaling;
+            // 1320 lógicos a 150% = 1980 físicos — MAIOR que um ecrã 1920. Era o "torto":
+            // o restaurar produzia uma janela maior que o monitor, com o ✕ fora do ecrã.
+            // O restaurado é sempre 85% da área de trabalho, caiba o ecrã que couber.
+            double w = 1320, h = 860;
+            if (scr is not null)
+            {
+                w = Math.Min(w, scr.WorkingArea.Width  / k * 0.85);
+                h = Math.Min(h, scr.WorkingArea.Height / k * 0.85);
+            }
+            Width = w; Height = h;
+            if (scr is not null)
+                Position = new PixelPoint(
+                    scr.WorkingArea.X + (int)Math.Max(0, (scr.WorkingArea.Width  - w * k) / 2),
+                    scr.WorkingArea.Y + (int)Math.Max(0, (scr.WorkingArea.Height - h * k) / 2));
+        }
+        else FillWorkArea();
+    }
     private void OnCloseWindow(object? s, RoutedEventArgs e) => Close();
 
     /// <summary>Nova composição: 2ª janela KLIP INDEPENDENTE (doc + IA + bus próprios), lado a lado.</summary>
@@ -2442,6 +2672,28 @@ public partial class MainWindow : Window
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+
+        // §BETA — modais abertos: o teclado é DELES. Sem isto, "S" atrás do modal inseria uma
+        // estrela na tela e o Espaço ligava a mão (as hotkeys de letra só olham para TextBox).
+        if (TutorialPanel.IsVisible)
+        {
+            switch (e.Key)
+            {
+                case Key.Escape: CloseTutorial(); e.Handled = true; break;
+                case Key.Left: OnTutorialBack(null, new RoutedEventArgs()); e.Handled = true; break;
+                // Enter/Espaço só chegam aqui se NENHUM botão tiver foco (senão o próprio botão trata-os)
+                case Key.Right: case Key.Enter: case Key.Space:
+                    OnTutorialNext(null, new RoutedEventArgs()); e.Handled = true; break;
+                case Key.Tab: break;                // NÃO tocar: é a navegação de foco entre os 3 botões
+                default: e.Handled = true; break;   // o resto morre aqui (não passa para a tela)
+            }
+            return;
+        }
+        if (ComplaintPanel.IsVisible) return;   // o formulário trata as suas próprias teclas
+        // O paywall tem exactamente o mesmo buraco e é anterior a isto: com ele aberto e o foco num
+        // botão de plano, "S" ainda inseria uma estrela na tela por trás. Mesmo ficheiro, mesmo bug.
+        if (PaymentPanel.IsVisible) return;
+
         if (e.Key == Key.Space && !(FocusManager?.GetFocusedElement() is TextBox))
         {
             _spaceDown = true;

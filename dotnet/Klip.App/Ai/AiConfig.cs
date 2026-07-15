@@ -45,12 +45,33 @@ public static class AiConfig
     {
         try
         {
-            System.Text.Json.Nodes.JsonObject root;
-            try { root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(CfgPath))!.AsObject(); }
-            catch { root = new System.Text.Json.Nodes.JsonObject(); }
-            root[key] = value;
             Directory.CreateDirectory(Path.GetDirectoryName(CfgPath)!);
-            File.WriteAllText(CfgPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+            System.Text.Json.Nodes.JsonObject root;
+            bool existe = File.Exists(CfgPath);
+            try
+            {
+                root = existe
+                    ? System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(CfgPath))!.AsObject()
+                    : new System.Text.Json.Nodes.JsonObject();
+            }
+            catch
+            {
+                // Ficheiro ilegível. Antes, isto recomeçava do zero e a gravação seguinte levava com
+                // ela a api_key, o klip_email, o mode e o worker_ai_url — apagados sem aviso.
+                // Guardamos os bytes de lado para o utilizador (ou nós) poder recuperar a chave à mão.
+                try { if (existe) File.Copy(CfgPath, CfgPath + ".corrompido", overwrite: true); } catch { }
+                root = new System.Text.Json.Nodes.JsonObject();
+            }
+
+            root[key] = value;
+
+            // Escrita atómica: um corte de energia a meio de um WriteAllText deixava o ficheiro truncado,
+            // e o arranque seguinte lia-o como corrompido — era assim que a bola de neve começava.
+            string tmp = CfgPath + ".tmp";
+            File.WriteAllText(tmp, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            if (existe) File.Replace(tmp, CfgPath, null);
+            else File.Move(tmp, CfgPath);
         }
         catch { /* otimista: a UI já refletiu */ }
     }

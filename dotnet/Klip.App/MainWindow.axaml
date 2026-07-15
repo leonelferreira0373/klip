@@ -5,12 +5,13 @@
         xmlns:wv="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.WebView"
         mc:Ignorable="d" d:DesignWidth="1320" d:DesignHeight="860"
         x:Class="Klip.App.MainWindow"
-        Title="KLIP Animator" Width="1320" Height="860"
+        Title="KLIP Animator" Width="1000" Height="640"
         Background="#FDFDFC"
         RequestedThemeVariant="Light"
         FontFamily="avares://Klip.App/Assets/Fonts#Manrope"
         FontWeight="SemiBold"
         DragDrop.AllowDrop="True"
+        WindowStartupLocation="CenterScreen"
         SystemDecorations="BorderOnly">
     <Window.Styles>
         <!-- botões da sidebar: micro-animações suaves (nunca snappy) -->
@@ -148,12 +149,24 @@
                      VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-          <Button x:Name="CreditsBtn" Classes="wbtn" Click="OnOpenPayment" Content="◆"
-                  ToolTip.Tip="Créditos / pagamento (comprovativo)" Foreground="#6D5EF6" FontSize="13"/>
+          <!-- ◆ + dot de descoberta (§BETA): Grid p/ empilhar em Z — o StackPanel pai não empilha.
+               SEM ClipToBounds, senão a margem negativa do dot era cortada. -->
+          <Button x:Name="CreditsBtn" Classes="wbtn" Click="OnOpenPayment"
+                  ToolTip.Tip="Créditos / pagamento (comprovativo)" Foreground="#6D5EF6" FontSize="13">
+            <Grid>
+              <TextBlock Text="◆" FontSize="13" Foreground="#6D5EF6"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <Border x:Name="CreditsDot" Width="7" Height="7" CornerRadius="3.5" Background="#E0245E"
+                      HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-7,0"
+                      IsVisible="False" ToolTip.Tip="Novo aqui: os créditos vivem neste botão"/>
+            </Grid>
+          </Button>
           <Button x:Name="BrowserBtn" Classes="wbtn" Click="OnToggleBrowser" Content="◍"
                   ToolTip.Tip="Browser embutido (pesquisa, download p/ a tela)" FontSize="15"/>
           <Button x:Name="NewCompBtn" Classes="wbtn" Click="OnNewComposition" Content="＋"
                   ToolTip.Tip="Nova composição (lado a lado, IA independente)" Foreground="#6D5EF6" FontSize="15"/>
+          <Button x:Name="ReplayTutorialBtn" Classes="wbtn" Click="OnReplayTutorial" Content="ⓘ"
+                  ToolTip.Tip="Rever a introdução (3 cartões)" FontSize="13"/>
           <Border Width="1" Height="16" Background="#ECECEA" Margin="4,0"/>
           <Button Classes="wbtn" Click="OnMinimize" Content="﹘" ToolTip.Tip="Minimizar"/>
           <Button Classes="wbtn" Click="OnMaxRestore" Content="▢" FontSize="12" ToolTip.Tip="Maximizar/Restaurar"/>
@@ -191,6 +204,11 @@
                         </Flyout>
                     </Button.Flyout>
                 </Button>
+
+                <!-- Reclamações §BETA -->
+                <Button x:Name="ComplaintBtn" DockPanel.Dock="Bottom" Classes="side" Margin="0,4,0,0"
+                        HorizontalAlignment="Center" Click="OnOpenComplaint" Content="⚑" FontSize="15"
+                        ToolTip.Tip="Reclamações e sugestões — lidas às quintas · beta"/>
 
                 <!-- PFP / login em baixo -->
                 <Button x:Name="PfpBtn" DockPanel.Dock="Bottom" Classes="side" Margin="0,4,0,12"
@@ -454,15 +472,15 @@
             <Button Grid.Column="0" x:Name="PlanA" Classes="plan" Click="OnSelectPlan" Tag="40000" Margin="0,0,4,0">
               <StackPanel><TextBlock Text="Starter" FontSize="10.5" FontWeight="SemiBold" Foreground="#9A9A97"/>
                 <TextBlock Text="40 000 Kz" FontSize="15" FontWeight="Bold" Foreground="#26251F"/>
-                <TextBlock Text="~100–500 iter" FontSize="12" Foreground="#4A3FCB" FontWeight="SemiBold"/></StackPanel></Button>
+                <TextBlock Text="~2 M tokens" FontSize="12" Foreground="#4A3FCB" FontWeight="SemiBold"/></StackPanel></Button>
             <Button Grid.Column="1" x:Name="PlanB" Classes="plan" Click="OnSelectPlan" Tag="200000" Margin="2,0">
               <StackPanel><TextBlock Text="Pro" FontSize="10.5" FontWeight="SemiBold" Foreground="#6D5EF6"/>
                 <TextBlock Text="200 000 Kz" FontSize="15" FontWeight="Bold" Foreground="#26251F"/>
-                <TextBlock Text="~500–2 500 iter" FontSize="12" Foreground="#4A3FCB" FontWeight="SemiBold"/></StackPanel></Button>
+                <TextBlock Text="~10 M tokens" FontSize="12" Foreground="#4A3FCB" FontWeight="SemiBold"/></StackPanel></Button>
             <Button Grid.Column="2" x:Name="PlanC" Classes="plan" Click="OnSelectPlan" Tag="400000" Margin="4,0,0,0">
               <StackPanel><TextBlock Text="Studio" FontSize="10.5" FontWeight="SemiBold" Foreground="#9A9A97"/>
                 <TextBlock Text="400 000 Kz" FontSize="15" FontWeight="Bold" Foreground="#26251F"/>
-                <TextBlock Text="~1 000–5 000 iter" FontSize="12" Foreground="#4A3FCB" FontWeight="SemiBold"/></StackPanel></Button>
+                <TextBlock Text="~20 M tokens" FontSize="12" Foreground="#4A3FCB" FontWeight="SemiBold"/></StackPanel></Button>
           </Grid>
           <TextBox x:Name="PlanCustom" Watermark="ou valor personalizado (≥ 40 000 Kz)" FontSize="12.5"
                    Foreground="#26251F" CornerRadius="10" Margin="0,0,0,14" KeyDown="OnCustomAmountKey"/>
@@ -484,6 +502,115 @@
             <HyperlinkButton Content="Termos" NavigateUri="https://klipstudio.vercel.app/terms" FontSize="11" Padding="4,0" Foreground="#4A3FCB"/>
             <HyperlinkButton Content="Privacidade" NavigateUri="https://klipstudio.vercel.app/privacy" FontSize="11" Padding="4,0" Foreground="#4A3FCB"/>
           </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <!-- ============ RECLAMAÇÕES §BETA (modal) — depois do paywall p/ não ficar por baixo ============ -->
+    <Border x:Name="ComplaintPanel" Grid.Row="0" Grid.RowSpan="2" Background="#66211F1A" IsVisible="False"
+            PointerPressed="OnComplaintBackdrop">
+      <Border Width="440" VerticalAlignment="Center" HorizontalAlignment="Center" Background="#FFFFFF"
+              CornerRadius="18" BorderBrush="#ECECEA" BorderThickness="1" Padding="0"
+              PointerPressed="OnComplaintCardPressed">
+        <StackPanel Margin="24">
+          <DockPanel Margin="0,0,0,4">
+            <Button DockPanel.Dock="Right" Classes="mini" Click="OnCloseComplaint" Content="✕"
+                    HorizontalAlignment="Right"/>
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <TextBlock Text="Reclamações" FontSize="17" FontWeight="Bold" Foreground="#26251F"
+                         VerticalAlignment="Center"/>
+              <Border Background="#EEEDFE" CornerRadius="6" Padding="6,2" VerticalAlignment="Center">
+                <TextBlock Text="BETA" FontSize="9.5" FontWeight="Bold" Foreground="#5B49E0"/>
+              </Border>
+            </StackPanel>
+          </DockPanel>
+          <TextBlock Text="As reclamações são lidas uma vez por semana, às quintas-feiras. Não há resposta imediata — mas são todas lidas."
+                     FontSize="12" Foreground="#9A9A97" TextWrapping="Wrap" Margin="0,0,0,14"/>
+
+          <TextBlock Text="Quem és tu:" FontSize="12.5" Foreground="#6B6B68" Margin="0,0,0,7"/>
+          <!-- MaxLength = os cortes do backend (120/160/8000). Sem isto o servidor cortava calado. -->
+          <TextBox x:Name="ComplaintName" Watermark="o teu nome" FontSize="12.5" MaxLength="120"
+                   Foreground="#26251F" CornerRadius="10" Margin="0,0,0,7"/>
+          <TextBox x:Name="ComplaintEmail" Watermark="o teu email" FontSize="12.5" MaxLength="160"
+                   Foreground="#26251F" CornerRadius="10" Margin="0,0,0,12"/>
+
+          <TextBlock Text="Sobre o quê:" FontSize="12.5" Foreground="#6B6B68" Margin="0,0,0,7"/>
+          <ComboBox x:Name="ComplaintCat" Classes="chat" HorizontalAlignment="Stretch"
+                    SelectedIndex="0" Margin="0,0,0,12" MinHeight="38">
+            <ComboBoxItem Content="Erro / bug"/>
+            <ComboBoxItem Content="Desempenho"/>
+            <ComboBoxItem Content="IA"/>
+            <ComboBoxItem Content="Pagamentos"/>
+            <ComboBoxItem Content="Sugestão"/>
+            <ComboBoxItem Content="Outro"/>
+          </ComboBox>
+
+          <TextBox x:Name="ComplaintMsg" Watermark="conta o que se passou…" FontSize="12.5"
+                   Foreground="#26251F" CornerRadius="10" Height="92" AcceptsReturn="True" MaxLength="8000"
+                   TextWrapping="Wrap" VerticalContentAlignment="Top" Margin="0,0,0,12"/>
+
+          <!-- consentimento EXPLÍCITO: desmarcado por defeito, tem de ser dado (não retirado) -->
+          <Border Background="#F7F7F5" CornerRadius="11" Padding="12,10" Margin="0,0,0,14">
+            <StackPanel>
+              <CheckBox x:Name="ComplaintConsent" FontSize="12" Foreground="#3A3A38">
+                <TextBlock Text="Autorizo enviar dados do meu PC e do uso da app"
+                           FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"/>
+              </CheckBox>
+              <TextBlock Text="Ajuda a perceber o problema: sistema operativo e arquitetura, processador (CPU) e nº de núcleos, memória (RAM), placa gráfica (GPU), versão do KLIP e do .NET, idioma do sistema, e o uso desta sessão (operações, erros, tempo aberto, modo de IA, nº de camadas). Se não marcares, nada disto é enviado com a reclamação — vai só o teu texto."
+                         FontSize="10.5" Foreground="#8A8A87" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </StackPanel>
+          </Border>
+
+          <Button x:Name="ComplaintSendBtn" Click="OnSubmitComplaint" HorizontalAlignment="Stretch"
+                  Background="#6D5EF6" Foreground="White" FontWeight="SemiBold" FontSize="14" MinHeight="46"
+                  CornerRadius="12" HorizontalContentAlignment="Center" Content="Enviar reclamação"/>
+          <TextBlock x:Name="ComplaintStatus" Text="" FontSize="12" Foreground="#5F5E5A"
+                     TextWrapping="Wrap" Margin="0,12,0,0"/>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <!-- ============ TUTORIAL 1ª utilização §BETA — 3 cards, ícone grande, texto curto ============
+         RowSpan=2: ao contrário do paywall, este tapa também a title bar (é a primeira coisa que se vê). -->
+    <Border x:Name="TutorialPanel" Grid.Row="0" Grid.RowSpan="2" Background="#66211F1A" IsVisible="False"
+            PointerPressed="OnTutorialBackdrop">
+      <Border Width="380" VerticalAlignment="Center" HorizontalAlignment="Center" Background="#FFFFFF"
+              CornerRadius="18" BorderBrush="#ECECEA" BorderThickness="1" Padding="0"
+              PointerPressed="OnTutorialCardPressed">
+        <StackPanel Margin="24,16,24,22">
+          <Button x:Name="TutSkip" Classes="mini" Click="OnSkipTutorial" Content="Saltar"
+                  HorizontalAlignment="Right" Margin="0,0,-6,0"/>
+
+          <!-- O ÍCONE é o conteúdo. O texto é a legenda. -->
+          <Border Width="104" Height="104" CornerRadius="52" Background="#EEEDFE"
+                  HorizontalAlignment="Center" Margin="0,6,0,20">
+            <TextBlock x:Name="TutIcon" Text="K" FontSize="44" FontWeight="Bold" Foreground="#6D5EF6"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+
+          <TextBlock x:Name="TutTitle" Text="Bem-vindo ao KLIP" FontSize="19" FontWeight="Bold"
+                     Foreground="#26251F" HorizontalAlignment="Center" TextAlignment="Center"
+                     TextWrapping="Wrap"/>
+          <TextBlock x:Name="TutText" Text="Animação vetorial, do esboço ao vídeo." FontSize="13"
+                     Foreground="#8A8A87" HorizontalAlignment="Center" TextAlignment="Center"
+                     TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+          <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" Margin="0,22,0,18">
+            <Border x:Name="TutDot0" Width="7" Height="7" CornerRadius="3.5" Background="#6D5EF6"/>
+            <Border x:Name="TutDot1" Width="7" Height="7" CornerRadius="3.5" Background="#ECECEA"/>
+            <Border x:Name="TutDot2" Width="7" Height="7" CornerRadius="3.5" Background="#ECECEA"/>
+          </StackPanel>
+
+          <Grid ColumnDefinitions="*,*">
+            <Button Grid.Column="0" x:Name="TutBack" Click="OnTutorialBack" Content="Voltar"
+                    Margin="0,0,4,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Background="#F4F4F2" BorderBrush="#E4E4E1" BorderThickness="1" Foreground="#26251F"
+                    FontWeight="SemiBold" FontSize="13" MinHeight="42" CornerRadius="11"/>
+            <Button Grid.Column="1" x:Name="TutNext" Click="OnTutorialNext" Content="Seguinte"
+                    Margin="4,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Background="#6D5EF6" Foreground="White"
+                    FontWeight="SemiBold" FontSize="13" MinHeight="42" CornerRadius="11"/>
+          </Grid>
         </StackPanel>
       </Border>
     </Border>

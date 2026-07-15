@@ -1,12 +1,18 @@
 {
   "latest": {
-    "version": "1.0.2",
-    "date": "2026-07-13",
-    "md5": "218ccc6d60059dcefad5d56c6d395b3b",
-    "notes": "Registo automatico de operacoes + metricas (RAM/CPU/uptime) com relatorio semanal encriptado (zip password klip{ano}), enviado so com opt-in. Motor de expressoes AE-grade (Jint). Transcricao Whisper offline. Pagina de receita publica + painel admin.",
+    "version": "1.0.3",
+    "date": "2026-07-15",
+    "md5": "29dacca2ea95ad2fc7108446ee01ba45",
+    "notes": "BETA social: botão de reclamações (folha semanal, consentimento explícito), tutorial de 3 cartões na 1ª utilização (revê no ⓘ), dot de descoberta nos créditos. Créditos em ~tokens (número único). Corrigido: envio de comprovativo in-app (multipart), janela abre a ocupar o ecrã sem tapar a barra de tarefas, restauro correcto em ecrãs 150%, config ai.json escrita atómica (a chave BYOK já não se perde).",
     "url": "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe"
   },
   "history": [
+    {
+      "version": "1.0.3",
+      "date": "2026-07-15",
+      "md5": "29dacca2ea95ad2fc7108446ee01ba45",
+      "notes": "BETA social: botão de reclamações (folha semanal, consentimento explícito), tutorial de 3 cartões na 1ª utilização (revê no ⓘ), dot de descoberta nos créditos. Créditos em ~tokens (número único). Corrigido: envio de comprovativo in-app (multipart), janela abre a ocupar o ecrã sem tapar a barra de tarefas, restauro correcto em ecrãs 150%, config ai.json escrita atómica (a chave BYOK já não se perde)."
+    },
     {
       "version": "1.0.2",
       "date": "2026-07-13",

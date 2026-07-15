@@ -57,6 +57,16 @@ public static class OpLog
         Write($"- `{DateTime.UtcNow:HH:mm:ss}` ⚠️ **ERROR** {msg}", $"[{DateTime.UtcNow:HH:mm:ss}] ERROR {msg}");
     }
 
+    /// <summary>Contadores da sessão — fonte do campo `usage` das reclamações (§BETA).
+    /// Só sai da app com consentimento explícito; ver Complaints.Usage.</summary>
+    public static (long ops, long errors, double uptimeMin, long ramMb) Snapshot()
+    {
+        long ram = 0;
+        try { var p = Process.GetCurrentProcess(); p.Refresh(); ram = p.WorkingSet64 / 1048576; } catch { }
+        return (Interlocked.Read(ref _ops), Interlocked.Read(ref _errors),
+                (DateTime.UtcNow - _start).TotalMinutes, ram);
+    }
+
     private static void Sample()
     {
         try
@@ -127,7 +137,7 @@ public static class OpLog
         return ms.ToArray();
     }
 
-    private static double TotalRamGb()
+    internal static double TotalRamGb()
     {
         try { var m = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
               return GlobalMemoryStatusEx(ref m) ? m.ullTotalPhys / 1073741824.0 : 0; }
