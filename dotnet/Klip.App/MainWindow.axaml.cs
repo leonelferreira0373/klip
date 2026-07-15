@@ -45,6 +45,8 @@ public partial class MainWindow : Window
 
 
 
+
+
         // arranca VAZIO num artboard branco (sem estrela/acento nem fundo creme)
 
         // handlers no CONTENTOR (sempre dimensionado) — a Image só ganha tamanho depois de ter Source
@@ -91,9 +93,16 @@ public partial class MainWindow : Window
         {
             _control = new Ai.ControlServer(_registry, instanceId);
             _cli.PortFile = _control.PortFilePath;   // este Claude Code dirige ESTE documento
-            Title = $"KLIP — AI bus ativo :{_control.Port}";
+            // O título é o que o Windows escreve na barra dele e na barra de tarefas. Um número de
+            // porta de debug ali é ruído para quem usa a app — a porta vive no tooltip do ⓘ e no
+            // ficheiro de porta, que é onde o Claude Code a vai buscar.
+            Title = "KLIP Animator";
         }
-        catch (Exception ex) { Title = "KLIP — AI bus FALHOU: " + ex.Message; }
+        catch (Exception ex)
+        {
+            Title = "KLIP Animator";
+            System.Diagnostics.Debug.WriteLine("AI bus falhou: " + ex.Message);
+        }
 
         // drag & drop: SVG + imagens (vídeo não suportado)
         AddHandler(DragDrop.DragOverEvent, (_, ev) =>

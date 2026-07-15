@@ -12,8 +12,7 @@
         FontWeight="SemiBold"
         DragDrop.AllowDrop="True"
         WindowStartupLocation="CenterScreen"
-        WindowState="Maximized"
-        SystemDecorations="BorderOnly">
+        WindowState="Maximized">
     <Window.Styles>
         <!-- botões da sidebar: micro-animações suaves (nunca snappy) -->
         <Style Selector="Button.side">
@@ -140,15 +139,10 @@
 
       <!-- ============ TITLE BAR custom (full bleed) ============ -->
       <Grid Grid.Row="0" x:Name="TitleBar" Background="#FDFDFC" ColumnDefinitions="*,Auto"
-            PointerPressed="OnTitleBarPressed">
-        <StackPanel Orientation="Horizontal" Spacing="9" Margin="14,0,0,0" VerticalAlignment="Center">
-          <Border Width="18" Height="18" CornerRadius="5" Background="#6D5EF6">
-            <TextBlock Text="K" Foreground="White" FontWeight="Bold" FontSize="11"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
-          <TextBlock Text="KLIP Animator" FontSize="12" FontWeight="SemiBold" Foreground="#3A3A38"
-                     VerticalAlignment="Center"/>
-        </StackPanel>
+           >
+        <!-- O nome já está na barra do Windows por cima. Repeti-lo aqui era a segunda "janela"
+             que se via. Esta linha passa a ser o que sempre foi: uma barra de acções. -->
+        <StackPanel Orientation="Horizontal" Spacing="9" Margin="14,0,0,0" VerticalAlignment="Center" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
           <!-- ◆ + dot de descoberta (§BETA): Grid p/ empilhar em Z — o StackPanel pai não empilha.
                SEM ClipToBounds, senão a margem negativa do dot era cortada. -->
@@ -168,10 +162,7 @@
                   ToolTip.Tip="Nova composição (lado a lado, IA independente)" Foreground="#6D5EF6" FontSize="15"/>
           <Button x:Name="ReplayTutorialBtn" Classes="wbtn" Click="OnReplayTutorial" Content="ⓘ"
                   ToolTip.Tip="Rever a introdução (3 cartões)" FontSize="13"/>
-          <Border Width="1" Height="16" Background="#ECECEA" Margin="4,0"/>
-          <Button Classes="wbtn" Click="OnMinimize" Content="﹘" ToolTip.Tip="Minimizar"/>
-          <Button Classes="wbtn" Click="OnMaxRestore" Content="▢" FontSize="12" ToolTip.Tip="Maximizar/Restaurar"/>
-          <Button Classes="wclose" Click="OnCloseWindow" Content="✕" ToolTip.Tip="Fechar"/>
+          <Border Width="6"/>
         </StackPanel>
       </Grid>
 

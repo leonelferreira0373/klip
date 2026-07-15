@@ -2,16 +2,16 @@
   "latest": {
     "version": "1.0.4",
     "date": "2026-07-15",
-    "md5": "020ccd8f98bb8981e406ac28ed23a9e0",
-    "notes": "Janela: abre maximizada a sério (WindowState nativo) — sem segunda barra de título nem ícones duplicados. Botão ⓘ para rever a introdução. Créditos em ~tokens (número único). Corrigido: envio de comprovativo in-app (multipart com aspas), escrita atómica do ai.json (a chave BYOK já não se perde num ficheiro corrompido), fuga de teclas por trás do paywall.",
+    "md5": "a2793d6edff5268943d64126b13df534",
+    "notes": "Janela: usa agora a moldura do Windows (como o Aether) — abre maximizada, a barra de tarefas em auto-esconder volta a revelar-se, e acabou a barra de titulo duplicada. O titulo deixa de mostrar a porta do AI bus. Botao (i) para rever a introducao. Creditos em ~tokens (numero unico). Corrigido: envio de comprovativo in-app (multipart), escrita atomica do ai.json (a chave BYOK ja nao se perde), fuga de teclas por tras do paywall.",
     "url": "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe"
   },
   "history": [
     {
       "version": "1.0.4",
       "date": "2026-07-15",
-      "md5": "020ccd8f98bb8981e406ac28ed23a9e0",
-      "notes": "Janela: abre maximizada a sério (WindowState nativo) — sem segunda barra de título nem ícones duplicados. Botão ⓘ para rever a introdução. Créditos em ~tokens (número único). Corrigido: envio de comprovativo in-app (multipart com aspas), escrita atómica do ai.json (a chave BYOK já não se perde num ficheiro corrompido), fuga de teclas por trás do paywall."
+      "md5": "a2793d6edff5268943d64126b13df534",
+      "notes": "Janela: usa agora a moldura do Windows (como o Aether) — abre maximizada, a barra de tarefas em auto-esconder volta a revelar-se, e acabou a barra de titulo duplicada. O titulo deixa de mostrar a porta do AI bus. Botao (i) para rever a introducao. Creditos em ~tokens (numero unico). Corrigido: envio de comprovativo in-app (multipart), escrita atomica do ai.json (a chave BYOK ja nao se perde), fuga de teclas por tras do paywall."
     },
     {
       "version": "1.0.3",
