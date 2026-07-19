@@ -119,7 +119,8 @@ public static class Hybrid3D
         float s = (float)(layer.Scale?.Eval(t) ?? 1.0);
         float px = (float)((layer.PosX?.Eval(t) ?? 0) * PxToWorld);
         float py = (float)(-(layer.PosY?.Eval(t) ?? 0) * PxToWorld);
-        float[] model = Mat4.Multiply(Mat4.Translation(px, py, 0),
+        float pz = (float)((layer.PosZ?.Eval(t) ?? 0) * PxToWorld);
+        float[] model = Mat4.Multiply(Mat4.Translation(px, py, pz),
                         Mat4.Multiply(Mat4.RotationY(rotY), Mat4.Scale(s)));
         float[] mvp = Mat4.Multiply(proj, Mat4.Multiply(view, model));
 

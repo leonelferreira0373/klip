@@ -272,7 +272,9 @@ public sealed record Layer(
     string? MatteSourceId = null,        // track-matte: Id/Name da camada-FONTE (stencil)
     MatteMode Matte = MatteMode.None,    // modo do matte (alpha/luma, normal/invertido)
     // ---- Fase 10: emissor de partículas (trailing → retro-compat total; null = camada normal) ----
-    ParticleSpec? Particles = null)      // se != null, a camada é um EMISSOR (o Shape é o sprite)
+    ParticleSpec? Particles = null,      // se != null, a camada é um EMISSOR (o Shape é o sprite)
+    // ---- Product Studio: profundidade 3D da camada (px→mundo /220; +Z = mais perto da câmara) ----
+    Track? PosZ = null)                  // colocação em Z p/ camadas 3D (perspetiva + DoF); null = z=0
 {
     /// <summary>Chave estável p/ endereçamento (aponta-e-instrui, IA): Id se existir, senão Name.</summary>
     [System.Text.Json.Serialization.JsonIgnore] public string Key => Id ?? Name;
