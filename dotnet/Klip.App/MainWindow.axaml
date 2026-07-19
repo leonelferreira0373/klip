@@ -264,6 +264,8 @@
                         <Button x:Name="PlayBtn" Classes="side" Click="OnPlay" Content="▶" ToolTip.Tip="Reproduzir a timeline"/>
                         <Button x:Name="TimelineBtn" Classes="side" Click="OnToggleTimeline" Content="⧗"
                                 ToolTip.Tip="Editor de timeline (keyframes + scrub)"/>
+                        <Button x:Name="P3DBtn" Classes="side" Click="OnToggle3D" Content="⬢"
+                                ToolTip.Tip="Painel 3D — objeto, material e câmara (com keyframes)"/>
                         <Button x:Name="HandBtn" Classes="side" Click="OnHandTool" Content="✋"
                                 ToolTip.Tip="Mão — arrasta a tela livremente (ou mantém Espaço). Scroll = pan · Ctrl/pinch = zoom"/>
                         <Button Classes="side" Click="OnFitView" Content="⛶" ToolTip.Tip="Ajustar à janela"/>
@@ -420,6 +422,13 @@
                     <Button Classes="mini" Click="OnDuplicate">⧉</Button>
                     <Button Classes="mini" Click="OnDelete">🗑</Button>
                 </StackPanel>
+                <!-- ============ PAINEL 3D: objeto + material + câmara (construído em código) ============ -->
+                <Border x:Name="Panel3D" DockPanel.Dock="Bottom" IsVisible="False"
+                        Background="#F7F7F5" CornerRadius="10" Padding="8,6" Margin="0,8,0,0">
+                    <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="Stack3D" Spacing="2"/>
+                    </ScrollViewer>
+                </Border>
                 <ListBox x:Name="LayerList" Background="#F7F7F5" Foreground="#3A3A38" FontSize="12"
                          CornerRadius="10" SelectionChanged="OnLayerPicked"/>
             </DockPanel>

@@ -2474,10 +2474,12 @@ public partial class MainWindow : Window
 
     private void UpdateInspector()
     {
+        Sync3DPanel();                    // painel 3D acompanha a seleção/tempo
         if (_selected < 0) { Inspector.Text = "(clica num objeto; arrasta p/ mover; pega no canto p/ escalar)"; return; }
         var l = _layers[_selected];
         Inspector.Text = $"{l.Name}\nx {(l.PosX?.Eval(0) ?? 0):0}   y {(l.PosY?.Eval(0) ?? 0):0}\n" +
                          $"escala {(l.Scale?.Eval(0) ?? 1):0.##}   rot {(l.Rotation?.Eval(0) ?? 0):0}°" +
+                         (l.ThreeD is { } t3 ? $"\n[3D  prof {t3.Depth:0.##}  rough {t3.Rough:0.##}  metal {t3.Metal:0.##}]" : "") +
                          (l.ClipD != null ? "\n[PowerClip ativo]" : "");
     }
 
@@ -3323,8 +3325,44 @@ public partial class MainWindow : Window
     {
         int ix = FindLayer(id);
         var l = Sel(id);
-        Mutate(() => _layers[ix] = l with { ThreeD = depth <= 0 ? null : new Extrude3D(depth, bevel) });
+        // preserva material/texturas ao mexer só em profundidade/bevel
+        Mutate(() => _layers[ix] = l with
+        {
+            ThreeD = depth <= 0 ? null : (l.ThreeD ?? new Extrude3D()) with { Depth = depth, Bevel = bevel }
+        });
         return new { ok = true, threeD = depth > 0 };
+    }
+
+    /// <summary>Material PBR da camada 3D: rough 0.04(espelho)–1(mate), metal 0(plástico)–1(metal).</summary>
+    public object ApiSetMaterial(string id, double? rough, double? metal)
+    {
+        int ix = FindLayer(id);
+        var l = Sel(id);
+        var t = l.ThreeD ?? new Extrude3D();
+        double r = Math.Clamp(rough ?? t.Rough, 0.04, 1.0);
+        double m = Math.Clamp(metal ?? t.Metal, 0.0, 1.0);
+        Mutate(() => _layers[ix] = l with { ThreeD = t with { Rough = r, Metal = m } });
+        return new { ok = true, rough = r, metal = m };
+    }
+
+    /// <summary>Textura na FACE do produto (ex. arte de cartão): imagem frente/verso + cor da borda (núcleo de papel).</summary>
+    public object ApiSetFaceTexture(string id, string? front, string? back, string? edge)
+    {
+        int ix = FindLayer(id);
+        var l = Sel(id);
+        var t = l.ThreeD ?? new Extrude3D();
+        if (front is { Length: > 0 } && !System.IO.File.Exists(front))
+            throw new InvalidOperationException("ficheiro da textura frontal não existe: " + front);
+        if (back is { Length: > 0 } && !System.IO.File.Exists(back))
+            throw new InvalidOperationException("ficheiro da textura do verso não existe: " + back);
+        var nt = t with
+        {
+            FrontTex = string.IsNullOrWhiteSpace(front) ? t.FrontTex : front,
+            BackTex = string.IsNullOrWhiteSpace(back) ? t.BackTex : back,
+            EdgeArgb = string.IsNullOrWhiteSpace(edge) ? t.EdgeArgb : ParseColor(edge!, 0xFFEDEDED),
+        };
+        Mutate(() => _layers[ix] = l with { ThreeD = nt });
+        return new { ok = true, front = nt.FrontTex, back = nt.BackTex };
     }
 
     public object ApiSetStroke(string id, string color, double width)

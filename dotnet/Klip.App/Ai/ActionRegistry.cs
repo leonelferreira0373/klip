@@ -263,6 +263,17 @@ public sealed class ActionRegistry
             new[] { "id", "depth" },
             a => _w.ApiSet3D(Str(a, "id") ?? "", Num(a, "depth") ?? 0.5, Num(a, "bevel") ?? 0.07)),
 
+        ["set_material"] = new("Material PBR da camada 3D. rough 0.04(espelho)→1(mate); metal 0(plástico/vidro)→1(metal). Cromado=rough .05/metal 1 · Ouro=.32/1 · Plástico=.22/0 · Mate=.75/0.",
+            P(("id", "string", ""), ("rough", "number", "0.04–1"), ("metal", "number", "0–1")),
+            new[] { "id" },
+            a => _w.ApiSetMaterial(Str(a, "id") ?? "", Num(a, "rough"), Num(a, "metal"))),
+
+        ["set_face_texture"] = new("Textura na FACE do produto 3D (arte de cartão/embalagem/etiqueta): imagem na frente e/ou verso + cor da borda (núcleo de papel). Caminhos ABSOLUTOS png/jpg.",
+            P(("id", "string", ""), ("front", "string", "caminho da arte da frente"),
+              ("back", "string", "caminho da arte do verso"), ("edge", "string", "#RRGGBB da borda")),
+            new[] { "id" },
+            a => _w.ApiSetFaceTexture(Str(a, "id") ?? "", Str(a, "front"), Str(a, "back"), Str(a, "edge"))),
+
         ["set_stroke"] = new("Contorno/stroke numa camada (line-work): width<=0 remove. Combina com trim_start/trim_end p/ 'linha a desenhar-se'.",
             P(("id", "string", ""), ("color", "string", "#RRGGBB"), ("width", "number", "px")),
             new[] { "id", "width" },

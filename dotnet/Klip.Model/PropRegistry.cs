@@ -38,6 +38,9 @@ public static class PropRegistry
         ["rotation"]   = Scal("rotation",   l => l.Rotation, (l, t) => l with { Rotation = t }),
         ["rotation.x"] = Scal("rotation.x", l => l.RotationX, (l, t) => l with { RotationX = t }),   // tilt 3D perspetiva
         ["rotation.y"] = Scal("rotation.y", l => l.RotationY, (l, t) => l with { RotationY = t }),
+        // ---- Product Studio: profundidade + roll, para camadas 3D REAIS (Extrude3D) ----
+        ["position.z"] = Scal("position.z", l => l.PosZ, (l, t) => l with { PosZ = t }),             // profundidade (perspetiva/DoF)
+        ["rotation.z"] = Scal("rotation.z", l => l.RotationZ, (l, t) => l with { RotationZ = t }),   // roll no plano da face
         ["scale"]      = Scal("scale",      l => l.Scale, (l, t) => l with { Scale = t }, 1),
         ["scale.x"]    = Scal("scale.x",    l => l.ScaleX, (l, t) => l with { ScaleX = t }, 1),
         ["scale.y"]    = Scal("scale.y",    l => l.ScaleY, (l, t) => l with { ScaleY = t }, 1),
@@ -76,6 +79,8 @@ public static class PropRegistry
         ["x"] = "position.x", ["y"] = "position.y", ["pos_x"] = "position.x", ["pos_y"] = "position.y",
         ["scale_x"] = "scale.x", ["scale_y"] = "scale.y", ["skew_x"] = "skew.x",
         ["rotate_x"] = "rotation.x", ["rotate_y"] = "rotation.y", ["rot_x"] = "rotation.x", ["rot_y"] = "rotation.y",
+        ["z"] = "position.z", ["pos_z"] = "position.z", ["depth"] = "position.z",
+        ["rotate_z"] = "rotation.z", ["rot_z"] = "rotation.z", ["roll"] = "rotation.z",
         ["trim_start"] = "trim.start", ["trim_end"] = "trim.end",
         ["fill"] = "color.fill", ["stroke"] = "color.stroke", ["fill2"] = "color.fill2", ["anchor_x"] = "anchor.x",
         // Fase 7 (NÃO mapear "shadow" nu → colidiria com o bool Shadow legado; usar shadow_blur como knob principal)
