@@ -193,9 +193,9 @@ void main(){
   if (dot(N,V) < 0.0) N = -N;                       // two-sided
   vec3 srgb = uColor;                               // cor sólida por defeito
   if (uUseTex == 1) {                               // textura de face por normal-z de objeto
-    if (vFaceZ > 0.5)       srgb = texture(uFront, vUV).rgb;   // frente = arte
-    else if (vFaceZ < -0.5) srgb = texture(uBack,  vUV).rgb;   // verso = arte
-    else                    srgb = uEdge;                      // borda = núcleo de papel
+    if (vFaceZ > 0.5)       srgb = texture(uFront, vUV).rgb;                    // frente = arte
+    else if (vFaceZ < -0.5) srgb = texture(uBack,  vec2(1.0-vUV.x, vUV.y)).rgb; // verso: u-flip (lê certo ao virar 180° em Y)
+    else                    srgb = uEdge;                                       // borda = núcleo de papel
   }
   vec3 albedo = pow(max(srgb,0.0), vec3(2.2));      // sRGB -> linear
   float rough = clamp(uRough,0.04,1.0);
