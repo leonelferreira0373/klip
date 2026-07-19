@@ -28,3 +28,6 @@ pc/
 klip.py
 pip-*.log
 /docs/
+
+# harness de render 3D (ferramenta de dev, nao entra em release)
+dotnet/Klip.PbrTest/
