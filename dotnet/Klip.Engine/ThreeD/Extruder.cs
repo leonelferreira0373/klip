@@ -19,11 +19,23 @@ public static class Extruder
 {
     private const double CScale = 1000.0;   // clipper int scale
 
+    // bounds do path (object-space) p/ UV planar — set no início de cada Build (render serial na thread klip-3d)
+    private static float _uMinX, _uMinY, _uInvW, _uInvH;
+
     public static float[] Build(SKPath path, float scale, float depth, float bevel, out int vertCount)
     {
         // UNIÃO de todos os contornos primeiro — glifos (ex. "K" da Segoe) vêm como contornos
         // SOBREPOSTOS; sem união, o even-odd cancela a sobreposição e paredes interiores furam a face.
         var rings = UnionAll(Flatten(path, scale));
+
+        // bounds p/ UV planar (u,v em [0,1] sobre a caixa do path → mapeia a arte na face)
+        float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+        foreach (var (ring, _) in rings)
+            foreach (var v in ring)
+            { if (v.X < minX) minX = v.X; if (v.X > maxX) maxX = v.X; if (v.Y < minY) minY = v.Y; if (v.Y > maxY) maxY = v.Y; }
+        _uMinX = minX; _uMinY = minY;
+        _uInvW = maxX > minX ? 1f / (maxX - minX) : 0f;
+        _uInvH = maxY > minY ? 1f / (maxY - minY) : 0f;
         float zCapF = depth * 0.5f, zWallF = depth * 0.5f - bevel;
         float zCapB = -depth * 0.5f, zWallB = -depth * 0.5f + bevel;
 
@@ -68,7 +80,7 @@ public static class Extruder
         AddCap(tris, capRings, zCapF, new Vector3(0, 0, 1), reversed: false);
         AddCap(tris, capRings, zCapB, new Vector3(0, 0, -1), reversed: true);
 
-        vertCount = tris.Count / 6;
+        vertCount = tris.Count / 8;    // [px,py,pz, nx,ny,nz, u,v]
         return tris.ToArray();
     }
 
@@ -287,5 +299,9 @@ public static class Extruder
     }
 
     private static void Push(List<float> t, Vector3 p, Vector3 n)
-    { t.Add(p.X); t.Add(p.Y); t.Add(p.Z); t.Add(n.X); t.Add(n.Y); t.Add(n.Z); }
+    {
+        t.Add(p.X); t.Add(p.Y); t.Add(p.Z); t.Add(n.X); t.Add(n.Y); t.Add(n.Z);
+        t.Add((p.X - _uMinX) * _uInvW);            // u
+        t.Add(1f - (p.Y - _uMinY) * _uInvH);       // v (flip: path-Y desce, world-Y sobe → topo da imagem em cima)
+    }
 }

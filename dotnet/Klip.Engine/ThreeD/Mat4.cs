@@ -60,6 +60,22 @@ public static class Mat4
         return m;
     }
 
+    public static float[] RotationX(float a)   // pitch (inclinar p/ trás/frente)
+    {
+        float c = MathF.Cos(a), s = MathF.Sin(a);
+        var m = Identity();
+        m[5] = c; m[9] = -s; m[6] = s; m[10] = c;
+        return m;
+    }
+
+    public static float[] RotationZ(float a)   // roll (giro no plano da face — leque de cartões)
+    {
+        float c = MathF.Cos(a), s = MathF.Sin(a);
+        var m = Identity();
+        m[0] = c; m[4] = -s; m[1] = s; m[5] = c;
+        return m;
+    }
+
     public static float[] Translation(float x, float y, float z)
     {
         var m = Identity();

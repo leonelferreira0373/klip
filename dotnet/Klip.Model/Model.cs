@@ -274,7 +274,8 @@ public sealed record Layer(
     // ---- Fase 10: emissor de partículas (trailing → retro-compat total; null = camada normal) ----
     ParticleSpec? Particles = null,      // se != null, a camada é um EMISSOR (o Shape é o sprite)
     // ---- Product Studio: profundidade 3D da camada (px→mundo /220; +Z = mais perto da câmara) ----
-    Track? PosZ = null)                  // colocação em Z p/ camadas 3D (perspetiva + DoF); null = z=0
+    Track? PosZ = null,                  // colocação em Z p/ camadas 3D (perspetiva + DoF); null = z=0
+    Track? RotationZ = null)             // roll 3D (giro no plano da face) p/ camadas ThreeD; leque de cartões
 {
     /// <summary>Chave estável p/ endereçamento (aponta-e-instrui, IA): Id se existir, senão Name.</summary>
     [System.Text.Json.Serialization.JsonIgnore] public string Key => Id ?? Name;
@@ -284,9 +285,13 @@ public sealed record Layer(
 /// A rotação Y usa o track Rotation da camada; luz/câmara vêm do Comp.</summary>
 /// <summary>Camada 3D extrudida. Rough/Metal = material PBR (metallic-roughness):
 /// Metal 1 + Rough baixo = espelho; Metal 1 + Rough alto = metal acetinado;
-/// Metal 0 = dielétrico (plástico/vidro), Rough controla o brilho.</summary>
+/// Metal 0 = dielétrico (plástico/vidro), Rough controla o brilho.
+/// FrontTex/BackTex = imagem na face frontal/traseira (produto texturado, ex. cartão);
+/// EdgeArgb = cor das paredes/borda (ex. núcleo de papel claro).</summary>
 public sealed record Extrude3D(double Depth = 0.5, double Bevel = 0.07,
-                               double Rough = 0.25, double Metal = 0.85);
+                               double Rough = 0.25, double Metal = 0.85,
+                               string? FrontTex = null, string? BackTex = null,
+                               uint EdgeArgb = 0xFFEDEDED);
 
 /// <summary>Câmara 3D REAL e animável do comp — posição, alvo e FOV são Tracks keyframáveis.
 /// Defaults: eye (0,0,5.2), target (0,0,0), fov 34°.</summary>

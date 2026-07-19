@@ -17,6 +17,7 @@ public sealed unsafe class MeshPass : IDisposable
     private readonly int _w, _h;
     private readonly float _envMaxLod;
     private readonly int _locMVP, _locModel, _locLight, _locColor, _locCam, _locRough, _locMetal, _locEnv, _locEnvLod;
+    private readonly int _locFront, _locBack, _locUseTex, _locEdge;
 
     public uint ColorTexture => _colorTex;
     public uint Fbo => _fbo;
@@ -36,6 +37,10 @@ public sealed unsafe class MeshPass : IDisposable
         _locMetal = gl.GetUniformLocation(_prog, "uMetal");
         _locEnv = gl.GetUniformLocation(_prog, "uEnv");
         _locEnvLod = gl.GetUniformLocation(_prog, "uEnvMaxLod");
+        _locFront = gl.GetUniformLocation(_prog, "uFront");
+        _locBack = gl.GetUniformLocation(_prog, "uBack");
+        _locUseTex = gl.GetUniformLocation(_prog, "uUseTex");
+        _locEdge = gl.GetUniformLocation(_prog, "uEdge");
         (_env, _envMaxLod) = IblEnv.Create(gl);   // estúdio procedural p/ IBL
 
         _vao = gl.GenVertexArray(); gl.BindVertexArray(_vao);
@@ -43,9 +48,11 @@ public sealed unsafe class MeshPass : IDisposable
         fixed (float* p = interleaved)
             gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(interleaved.Length * sizeof(float)), p, BufferUsageARB.StaticDraw);
         gl.EnableVertexAttribArray(0);
-        gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), (void*)0);
+        gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), (void*)0);
         gl.EnableVertexAttribArray(1);
-        gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+        gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        gl.EnableVertexAttribArray(2);
+        gl.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), (void*)(6 * sizeof(float)));
 
         _colorTex = gl.GenTexture(); gl.BindTexture(TextureTarget.Texture2D, _colorTex);
         gl.TexImage2D(TextureTarget.Texture2D, 0, (int)InternalFormat.Rgba8, (uint)w, (uint)h, 0,
@@ -75,7 +82,8 @@ public sealed unsafe class MeshPass : IDisposable
     }
 
     public void Render(float[] mvp, float[] model, Vector3 lightDir, Vector3 color, Vector3 camPos,
-                       float rough = 0.25f, float metal = 0.85f)
+                       float rough = 0.25f, float metal = 0.85f,
+                       uint frontTex = 0, uint backTex = 0, bool useTex = false, Vector3? edge = null)
     {
         _gl.BindFramebuffer(FramebufferTarget.Framebuffer, _fbo);
         _gl.Viewport(0, 0, (uint)_w, (uint)_h);
@@ -97,6 +105,19 @@ public sealed unsafe class MeshPass : IDisposable
         _gl.BindTexture(TextureTarget.Texture2D, _env);
         _gl.Uniform1(_locEnv, 0);
         _gl.Uniform1(_locEnvLod, _envMaxLod);
+        // texturas de face (frente/verso) — só quando a camada as define
+        _gl.Uniform1(_locUseTex, useTex ? 1 : 0);
+        if (useTex)
+        {
+            var e = edge ?? new Vector3(0.93f, 0.93f, 0.93f);
+            _gl.Uniform3(_locEdge, e.X, e.Y, e.Z);
+            _gl.ActiveTexture(TextureUnit.Texture1);
+            _gl.BindTexture(TextureTarget.Texture2D, frontTex);
+            _gl.Uniform1(_locFront, 1);
+            _gl.ActiveTexture(TextureUnit.Texture2);
+            _gl.BindTexture(TextureTarget.Texture2D, backTex != 0 ? backTex : frontTex);
+            _gl.Uniform1(_locBack, 2);
+        }
         _gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)_vertCount);
 
         _gl.Disable(EnableCap.DepthTest);
@@ -107,18 +128,26 @@ public sealed unsafe class MeshPass : IDisposable
     private const string Vs = @"#version 330 core
 layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNormal;
+layout(location=2) in vec2 aUV;
 uniform mat4 uMVP; uniform mat4 uModel;
-out vec3 vN; out vec3 vW;
-void main(){ gl_Position = uMVP * vec4(aPos,1.0); vW = (uModel*vec4(aPos,1.0)).xyz; vN = mat3(uModel)*aNormal; }";
+out vec3 vN; out vec3 vW; out vec2 vUV; out float vFaceZ;
+void main(){
+  gl_Position = uMVP * vec4(aPos,1.0);
+  vW = (uModel*vec4(aPos,1.0)).xyz;
+  vN = mat3(uModel)*aNormal;
+  vUV = aUV;
+  vFaceZ = aNormal.z;                 // normal em ESPAÇO-OBJETO → classifica frente/verso/borda
+}";
 
     // PBR (Cook-Torrance/GGX, metallic-roughness) + IBL REAL (estúdio procedural
     // equiretangular: reflexo especular via reflect()+mip por roughness, difusa via
     // irradiância) + 1 key light analítica p/ glint nítido + ACES + gama sRGB.
     private const string Fs = @"#version 330 core
-in vec3 vN; in vec3 vW; out vec4 o;
+in vec3 vN; in vec3 vW; in vec2 vUV; in float vFaceZ; out vec4 o;
 uniform vec3 uLightDir; uniform vec3 uColor; uniform vec3 uCamPos;
 uniform float uRough; uniform float uMetal;
 uniform sampler2D uEnv; uniform float uEnvMaxLod;
+uniform sampler2D uFront; uniform sampler2D uBack; uniform int uUseTex; uniform vec3 uEdge;
 const float PI = 3.14159265359;
 
 float D_GGX(float NoH, float a){ float a2=a*a; float d=(NoH*NoH)*(a2-1.0)+1.0; return a2/(PI*d*d); }
@@ -162,7 +191,13 @@ void main(){
   vec3 N = normalize(vN);
   vec3 V = normalize(uCamPos - vW);
   if (dot(N,V) < 0.0) N = -N;                       // two-sided
-  vec3 albedo = pow(max(uColor,0.0), vec3(2.2));    // sRGB -> linear
+  vec3 srgb = uColor;                               // cor sólida por defeito
+  if (uUseTex == 1) {                               // textura de face por normal-z de objeto
+    if (vFaceZ > 0.5)       srgb = texture(uFront, vUV).rgb;   // frente = arte
+    else if (vFaceZ < -0.5) srgb = texture(uBack,  vUV).rgb;   // verso = arte
+    else                    srgb = uEdge;                      // borda = núcleo de papel
+  }
+  vec3 albedo = pow(max(srgb,0.0), vec3(2.2));      // sRGB -> linear
   float rough = clamp(uRough,0.04,1.0);
   float metal = clamp(uMetal,0.0,1.0);
   vec3 F0 = mix(vec3(0.04), albedo, metal);
