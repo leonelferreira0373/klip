@@ -52,12 +52,15 @@ public partial class MainWindow : Window
     {
         _tab = t;
         if (t == "3d" && !_p3dBuilt) { Build3DPanel(); _p3dBuilt = true; }
+        if (t == "audio") { BuildDawTab(); DrawWaveform(); }
 
         TabLayers.IsVisible = t == "layers";
         Panel3D.IsVisible = t == "3d";
+        PanelDaw.IsVisible = t == "audio";
         ChatHost.IsVisible = t == "chat";
         TabOn(TabLayersBtn, t == "layers");
         TabOn(Tab3DBtn, t == "3d");
+        TabOn(TabDawBtn, t == "audio");
         TabOn(TabChatBtn, t == "chat");
 
         _p3dOpen = t == "3d";

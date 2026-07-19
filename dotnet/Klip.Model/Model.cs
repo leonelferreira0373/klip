@@ -300,6 +300,28 @@ public sealed record CameraRig(
     Track? Tx = null, Track? Ty = null, Track? Tz = null,
     Track? Fov = null);
 
+// ===================== DAW: áudio multipista =====================
+
+/// <summary>Um clip de áudio na timeline: ficheiro + onde entra + trim + ganho/fades.</summary>
+public sealed record AudioClip(
+    string Path,                 // ficheiro no disco (wav/mp3/flac/ogg/m4a)
+    double Start = 0,            // segundos NA TIMELINE onde o clip começa
+    double TrimStart = 0,        // segundos cortados no INÍCIO da fonte
+    double TrimEnd = 0,          // segundos cortados no FIM da fonte (0 = até ao fim)
+    double Gain = 1.0,           // ganho linear do clip
+    double FadeIn = 0,           // segundos de fade de entrada
+    double FadeOut = 0,          // segundos de fade de saída
+    string? Name = null);
+
+/// <summary>Faixa do DAW: clips + volume/pan/mute/solo. A cadeia de efeitos entra na fase A3.</summary>
+public sealed record AudioTrack(
+    string Name,
+    IReadOnlyList<AudioClip> Clips,
+    double Volume = 1.0,         // linear, 0..2 (1 = unidade)
+    double Pan = 0,              // -1 esquerda · 0 centro · +1 direita
+    bool Mute = false,
+    bool Solo = false);
+
 /// <summary>A composition: canvas + timing + layers. BackgroundArgb = 0xAARRGGBB.</summary>
 public sealed record Comp(
     int Width,
@@ -309,4 +331,5 @@ public sealed record Comp(
     uint BackgroundArgb,
     IReadOnlyList<Layer> Layers,
     uint? BackgroundArgb2 = null,    // if set → vertical gradient background
-    CameraRig? Camera = null);       // câmara 3D animável (para camadas ThreeD)
+    CameraRig? Camera = null,        // câmara 3D animável (para camadas ThreeD)
+    IReadOnlyList<AudioTrack>? Audio = null);   // DAW: faixas de áudio (trailing → retro-compat)

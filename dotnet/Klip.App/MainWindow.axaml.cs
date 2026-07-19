@@ -1477,6 +1477,7 @@ public partial class MainWindow : Window
             if (_timelineOpen) RenderTimeline();   // playhead segue a reprodução
         };
         _playTimer.Start();
+        AudioPlayFrom(0);                 // DAW: o som arranca colado ao playhead
         PlayBtn.Content = "■";
     }
 
@@ -1484,6 +1485,7 @@ public partial class MainWindow : Window
     {
         _playTimer?.Stop();
         _playTimer = null;
+        AudioStop();
         PlayBtn.Content = "▶";
         Refresh();
     }

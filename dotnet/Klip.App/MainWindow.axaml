@@ -430,10 +430,11 @@
         <!-- ============ PAINEL DIREITO: abas Camadas · 3D · Chat ============ -->
         <Border Grid.Column="3" Background="#FDFDFC" BorderBrush="#ECECEA" BorderThickness="1,0,0,0">
             <DockPanel Margin="10">
-                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*,*" Margin="0,2,0,8">
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*,*,*" Margin="0,2,0,8">
                     <Button x:Name="TabLayersBtn" Grid.Column="0" Classes="tab on" Click="OnTab" Tag="layers" Content="Camadas"/>
                     <Button x:Name="Tab3DBtn"     Grid.Column="1" Classes="tab"    Click="OnTab" Tag="3d"     Content="3D"/>
-                    <Button x:Name="TabChatBtn"   Grid.Column="2" Classes="tab"    Click="OnTab" Tag="chat"   Content="Chat"/>
+                    <Button x:Name="TabDawBtn"    Grid.Column="2" Classes="tab"    Click="OnTab" Tag="audio"  Content="Áudio"/>
+                    <Button x:Name="TabChatBtn"   Grid.Column="3" Classes="tab"    Click="OnTab" Tag="chat"   Content="Chat"/>
                 </Grid>
                 <Grid>
                     <!-- ABA: CAMADAS + INSPECTOR -->
@@ -457,6 +458,13 @@
                     <Border x:Name="Panel3D" IsVisible="False" Background="#F7F7F5" CornerRadius="10" Padding="8,6">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel x:Name="Stack3D" Spacing="2"/>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- ABA: ÁUDIO / DAW (conteúdo construído em código) -->
+                    <Border x:Name="PanelDaw" IsVisible="False" Background="#F7F7F5" CornerRadius="10" Padding="8,6">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="DawStack" Spacing="0"/>
                         </ScrollViewer>
                     </Border>
 
