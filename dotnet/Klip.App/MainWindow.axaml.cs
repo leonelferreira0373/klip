@@ -367,7 +367,7 @@ public partial class MainWindow : Window
 
     private static readonly Avalonia.Controls.GridLength ColZero = new(0);
     private static readonly Avalonia.Controls.GridLength ColStar = new(1, Avalonia.Controls.GridUnitType.Star);
-    private static readonly Avalonia.Controls.GridLength ColCamadas = new(246);
+    private static readonly Avalonia.Controls.GridLength ColCamadas = new(320);   // abas Camadas·3D·Chat
 
     /// <summary>Geometria do browser: fechado(0) · metade(canvas *|browser * + camadas 246) · full(só browser).</summary>
     private void ApplyBrowserLayout()

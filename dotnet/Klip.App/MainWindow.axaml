@@ -40,6 +40,27 @@
             <Setter Property="RenderTransform" Value="scale(0.9)"/>
         </Style>
 
+        <!-- abas do painel direito: Camadas · 3D · Chat -->
+        <Style Selector="Button.tab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#9A9A97"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="Button.tab.on">
+            <Setter Property="Foreground" Value="#6D5EF6"/>
+            <Setter Property="BorderBrush" Value="#6D5EF6"/>
+        </Style>
+        <Style Selector="Button.tab:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
         <Style Selector="Button.mini">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#6B6B68"/>
@@ -167,7 +188,7 @@
       </Grid>
 
     <!-- col2 = browser (0 fechado · *=metade · full no ⛶); col3 = camadas (fica ao lado) -->
-    <Grid Grid.Row="1" x:Name="ContentGrid" ColumnDefinitions="52,*,0,246">
+    <Grid Grid.Row="1" x:Name="ContentGrid" ColumnDefinitions="52,*,0,320">
 
         <!-- ============ SIDEBAR fina: todas as ferramentas ============ -->
         <Border Grid.Column="0" Background="#FDFDFC" BorderBrush="#ECECEA" BorderThickness="0,0,1,0">
@@ -406,31 +427,42 @@
             </Border>
         </Grid>
 
-        <!-- ============ PAINEL DIREITO: camadas + inspector ============ -->
+        <!-- ============ PAINEL DIREITO: abas Camadas · 3D · Chat ============ -->
         <Border Grid.Column="3" Background="#FDFDFC" BorderBrush="#ECECEA" BorderThickness="1,0,0,0">
-            <DockPanel Margin="12">
-                <TextBlock DockPanel.Dock="Top" Text="Camadas" Foreground="#6B6B68" FontWeight="Bold"
-                           FontSize="12" Margin="0,2,0,8"/>
-                <StackPanel DockPanel.Dock="Bottom" Spacing="5" Margin="0,10,0,0">
-                    <TextBlock Text="Inspector" Foreground="#6B6B68" FontWeight="Bold" FontSize="12"/>
-                    <TextBlock x:Name="Inspector" Text="(clica num objeto)" Foreground="#9A9A97"
-                               FontSize="11" TextWrapping="Wrap"/>
-                </StackPanel>
-                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="3" Margin="0,8,0,0">
-                    <Button Classes="mini" Click="OnLayerUp">↑</Button>
-                    <Button Classes="mini" Click="OnLayerDown">↓</Button>
-                    <Button Classes="mini" Click="OnDuplicate">⧉</Button>
-                    <Button Classes="mini" Click="OnDelete">🗑</Button>
-                </StackPanel>
-                <!-- ============ PAINEL 3D: objeto + material + câmara (construído em código) ============ -->
-                <Border x:Name="Panel3D" DockPanel.Dock="Bottom" IsVisible="False"
-                        Background="#F7F7F5" CornerRadius="10" Padding="8,6" Margin="0,8,0,0">
-                    <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel x:Name="Stack3D" Spacing="2"/>
-                    </ScrollViewer>
-                </Border>
-                <ListBox x:Name="LayerList" Background="#F7F7F5" Foreground="#3A3A38" FontSize="12"
-                         CornerRadius="10" SelectionChanged="OnLayerPicked"/>
+            <DockPanel Margin="10">
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*,*" Margin="0,2,0,8">
+                    <Button x:Name="TabLayersBtn" Grid.Column="0" Classes="tab on" Click="OnTab" Tag="layers" Content="Camadas"/>
+                    <Button x:Name="Tab3DBtn"     Grid.Column="1" Classes="tab"    Click="OnTab" Tag="3d"     Content="3D"/>
+                    <Button x:Name="TabChatBtn"   Grid.Column="2" Classes="tab"    Click="OnTab" Tag="chat"   Content="Chat"/>
+                </Grid>
+                <Grid>
+                    <!-- ABA: CAMADAS + INSPECTOR -->
+                    <DockPanel x:Name="TabLayers">
+                        <StackPanel DockPanel.Dock="Bottom" Spacing="5" Margin="0,10,0,0">
+                            <TextBlock Text="Inspector" Foreground="#6B6B68" FontWeight="Bold" FontSize="12"/>
+                            <TextBlock x:Name="Inspector" Text="(clica num objeto)" Foreground="#9A9A97"
+                                       FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="3" Margin="0,8,0,0">
+                            <Button Classes="mini" Click="OnLayerUp">↑</Button>
+                            <Button Classes="mini" Click="OnLayerDown">↓</Button>
+                            <Button Classes="mini" Click="OnDuplicate">⧉</Button>
+                            <Button Classes="mini" Click="OnDelete">🗑</Button>
+                        </StackPanel>
+                        <ListBox x:Name="LayerList" Background="#F7F7F5" Foreground="#3A3A38" FontSize="12"
+                                 CornerRadius="10" SelectionChanged="OnLayerPicked"/>
+                    </DockPanel>
+
+                    <!-- ABA: 3D (conteúdo construído em código) -->
+                    <Border x:Name="Panel3D" IsVisible="False" Background="#F7F7F5" CornerRadius="10" Padding="8,6">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="Stack3D" Spacing="2"/>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- ABA: CHAT — o ChatCard é reparentado para aqui em runtime -->
+                    <Panel x:Name="ChatHost" IsVisible="False"/>
+                </Grid>
             </DockPanel>
         </Border>
         <!-- ============ BROWSER embutido (coluna própria — meia tela, camadas ao lado) ============ -->

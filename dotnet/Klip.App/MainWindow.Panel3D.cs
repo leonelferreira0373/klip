@@ -30,13 +30,66 @@ public partial class MainWindow : Window
     private static readonly IBrush BrHead = new SolidColorBrush(Color.Parse("#9A9A97"));
     private static readonly IBrush BrAccent = new SolidColorBrush(Color.Parse("#6D5EF6"));
 
-    private void OnToggle3D(object? s, RoutedEventArgs e)
+    /// <summary>Botão ⬢ da sidebar → salta para a aba 3D (ou volta às camadas se já lá estiver).</summary>
+    private void OnToggle3D(object? s, RoutedEventArgs e) => ShowTab(_tab == "3d" ? "layers" : "3d");
+
+    // ================= ABAS do painel direito: Camadas · 3D · Chat =================
+    private string _tab = "layers";
+
+    protected override void OnLoaded(RoutedEventArgs e)
     {
-        _p3dOpen = !_p3dOpen;
-        if (_p3dOpen && !_p3dBuilt) { Build3DPanel(); _p3dBuilt = true; }
-        Panel3D.IsVisible = _p3dOpen;
-        P3DBtn.Foreground = new SolidColorBrush(Color.Parse(_p3dOpen ? "#6D5EF6" : "#5E5E5B"));
+        base.OnLoaded(e);
+        DockChatIntoPanel();     // o chat deixa de flutuar sobre a tela e passa a viver na aba
+        ShowTab("layers");
+    }
+
+    private void OnTab(object? s, RoutedEventArgs e)
+    {
+        if (s is Button b && b.Tag is string t) ShowTab(t);
+    }
+
+    private void ShowTab(string t)
+    {
+        _tab = t;
+        if (t == "3d" && !_p3dBuilt) { Build3DPanel(); _p3dBuilt = true; }
+
+        TabLayers.IsVisible = t == "layers";
+        Panel3D.IsVisible = t == "3d";
+        ChatHost.IsVisible = t == "chat";
+        TabOn(TabLayersBtn, t == "layers");
+        TabOn(Tab3DBtn, t == "3d");
+        TabOn(TabChatBtn, t == "chat");
+
+        _p3dOpen = t == "3d";
         if (_p3dOpen) Sync3DPanel();
+        P3DBtn.Foreground = new SolidColorBrush(Color.Parse(_p3dOpen ? "#6D5EF6" : "#5E5E5B"));
+        if (t == "chat") ChatInput?.Focus();
+    }
+
+    private static void TabOn(Button b, bool on)
+    {
+        if (on) { if (!b.Classes.Contains("on")) b.Classes.Add("on"); }
+        else b.Classes.Remove("on");
+    }
+
+    /// <summary>Reparenta o cartão de chat (que flutuava sobre a tela) para dentro da aba Chat.</summary>
+    private void DockChatIntoPanel()
+    {
+        try
+        {
+            if (ChatCard is null || ChatHost is null) return;
+            if (ChatCard.Parent is Panel p) p.Children.Remove(ChatCard);
+            ChatCard.Width = double.NaN;
+            ChatCard.HorizontalAlignment = HorizontalAlignment.Stretch;
+            ChatCard.VerticalAlignment = VerticalAlignment.Stretch;
+            ChatCard.Margin = new Thickness(0);
+            ChatCard.CornerRadius = new CornerRadius(10);
+            ChatCard.BoxShadow = default;
+            ChatCard.Opacity = 1;
+            ChatCard.RenderTransform = null;
+            ChatHost.Children.Add(ChatCard);
+        }
+        catch { /* se falhar, o chat fica onde estava — nunca partir o arranque */ }
     }
 
     // ---------- construção ----------
