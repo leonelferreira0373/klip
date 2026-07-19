@@ -127,7 +127,7 @@ public static class Hybrid3D
         uint f = layer.FillArgb;
         var color = new Vector3(((f >> 16) & 0xFF) / 255f, ((f >> 8) & 0xFF) / 255f, (f & 0xFF) / 255f);
 
-        _pass.Render(mvp, model, light, color, eye);
+        _pass.Render(mvp, model, light, color, eye, (float)spec.Rough, (float)spec.Metal);
 
         // readback direto (glReadPixels) — sem interop GRBackendTexture, robusto em single-file
         var gl = gpu.Gl;

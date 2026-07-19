@@ -280,7 +280,11 @@ public sealed record Layer(
 
 /// <summary>Extrusão 3D de uma camada: profundidade + bevel (unidades de mundo ~ px/220).
 /// A rotação Y usa o track Rotation da camada; luz/câmara vêm do Comp.</summary>
-public sealed record Extrude3D(double Depth = 0.5, double Bevel = 0.07);
+/// <summary>Camada 3D extrudida. Rough/Metal = material PBR (metallic-roughness):
+/// Metal 1 + Rough baixo = espelho; Metal 1 + Rough alto = metal acetinado;
+/// Metal 0 = dielétrico (plástico/vidro), Rough controla o brilho.</summary>
+public sealed record Extrude3D(double Depth = 0.5, double Bevel = 0.07,
+                               double Rough = 0.25, double Metal = 0.85);
 
 /// <summary>Câmara 3D REAL e animável do comp — posição, alvo e FOV são Tracks keyframáveis.
 /// Defaults: eye (0,0,5.2), target (0,0,0), fov 34°.</summary>
