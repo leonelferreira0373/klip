@@ -14,7 +14,10 @@ namespace Klip.App.Ai;
 /// </summary>
 public static class McpStdioBridge
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(35) };
+    // 35s matava qualquer ação longa (blender_render em Cycles, export_animation, roto).
+    // O Blender acabava o trabalho e a ponte já tinha desistido — o pedido "falhava" com a
+    // imagem já no disco. Quem manda no tempo é o timeout de CADA ação, não o canal.
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(30) };
 
     private static string? EditorUrl()
     {

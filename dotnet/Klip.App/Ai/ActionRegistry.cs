@@ -392,6 +392,13 @@ public sealed class ActionRegistry
 
         ["clear_particles"] = new("PARTÍCULAS: remove o emissor da camada (volta a ser uma forma normal).",
             P(("id", "string", "")), new[] { "id" }, a => _w.ApiClearParticles(Str(a, "id") ?? "")),
+
+        // ===== Ponte Blender: 3D fotorreal (Cycles) que o motor Skia do KLIP não faz =====
+        ["blender_render"] = new("BLENDER (3D fotorreal): corre um script Python no Blender headless e devolve o PNG — usa quando o pedido exige path-tracing real (produto, vidro, metal, GI) em vez do 3D do KLIP. O script recebe o caminho de saída em sys.argv depois de '--' (usa-o em bpy.context.scene.render.filepath). Blender 5.x: NÃO uses action.fcurves, scene.node_tree, mesh.use_auto_smooth nem BLENDER_EEVEE_NEXT; sockets do Principled são 'Specular IOR Level'/'Emission Color'/'Coat Weight'. Sem GPU aqui: Cycles em CPU, 64-128 amostras + denoise, e põe view_transform='Standard' senão sai lavado. Recebes a imagem de volta para a criticares.",
+            P(("script", "string", "código Python (bpy) completo"), ("path", "string", "caminho .png absoluto de saída"),
+              ("timeout", "number", "segundos, default 900")),
+            new[] { "script", "path" },
+            a => _w.ApiBlenderRender(Str(a, "script") ?? "", Str(a, "path") ?? "", Num(a, "timeout")), Background: true),
     };
 
     public object Manifest() => Acts.Select(kv => new
