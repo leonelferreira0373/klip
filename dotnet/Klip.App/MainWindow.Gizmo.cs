@@ -21,10 +21,14 @@ namespace Klip.App;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private const double GizZ = 1.00, GizY = 0.78, GizX = 0.56;   // raios relativos
-    private const double GizBand = 11.0;                          // tolerância em píxeis de ecrã
+    // COMPACTO de propósito: anéis grandes tapam o objeto e roubam cliques a tudo o resto.
+    // Isto fica um alvo pequeno junto ao centro, como o gizmo do Blender.
+    private const double GizZ = 0.62, GizY = 0.48, GizX = 0.34;   // raios relativos
+    private const double GizMaxPx = 86;                           // nunca maior que isto
+    private const double GizBand = 9.0;                           // tolerância em píxeis de ecrã
 
-    private int _gizAxis = -1;             // 0=X 1=Y 2=Z
+    private int _gizAxis = -1;             // eixo AGARRADO (0=X 1=Y 2=Z)
+    private int _gizHover = -1;            // eixo sob o cursor — realce antes de clicar
     private double _gizStartAngle, _gizStartValue;
     private Ellipse?[] _gizRings = new Ellipse?[3];
 
@@ -41,7 +45,8 @@ public partial class MainWindow : Window
         var tl = FromCanvas(r.x, r.y);
         var br = FromCanvas(r.x + r.w, r.y + r.h);
         var c = new Point((tl.X + br.X) / 2, (tl.Y + br.Y) / 2);
-        double rad = Math.Max(34, Math.Max(Math.Abs(br.X - tl.X), Math.Abs(br.Y - tl.Y)) * 0.62);
+        double rad = Math.Max(30, Math.Abs(br.X - tl.X) is var wpx && Math.Abs(br.Y - tl.Y) is var hpx
+            ? Math.Min(GizMaxPx, Math.Max(wpx, hpx) * 0.5) : 60);
         return (c, rad);
     }
 
@@ -66,11 +71,42 @@ public partial class MainWindow : Window
             double rel = i == 0 ? GizX : i == 1 ? GizY : GizZ;
             double d = g.Value.r * rel * 2;
             ring.Width = d; ring.Height = d;
-            ring.StrokeThickness = _gizAxis == i ? 3.4 : 2.0;      // o eixo em uso engrossa
-            ring.Opacity = _gizAxis < 0 || _gizAxis == i ? 0.9 : 0.25;
+            int active = _gizAxis >= 0 ? _gizAxis : _gizHover;      // agarrado manda; senão, o hover
+            ring.StrokeThickness = active == i ? 3.6 : 1.6;
+            ring.Opacity = active < 0 ? 0.55 : (active == i ? 1.0 : 0.18);
             Avalonia.Controls.Canvas.SetLeft(ring, g.Value.c.X - d / 2);
             Avalonia.Controls.Canvas.SetTop(ring, g.Value.c.Y - d / 2);
             ring.IsVisible = true;
+        }
+    }
+
+    /// <summary>Qual anel está sob este ponto? -1 se nenhum.</summary>
+    private int GizmoHit(Point screen)
+    {
+        if (GizmoGeom() is not { } g) return -1;
+        double dx = screen.X - g.c.X, dy = screen.Y - g.c.Y;
+        double dist = Math.Sqrt(dx * dx + dy * dy);
+        int best = -1; double bestErr = GizBand;
+        for (int i = 0; i < 3; i++)
+        {
+            double rel = i == 0 ? GizX : i == 1 ? GizY : GizZ;
+            double err = Math.Abs(dist - g.r * rel);
+            if (err < bestErr) { bestErr = err; best = i; }
+        }
+        return best;
+    }
+
+    /// <summary>HOVER: realça o anel sob o cursor ANTES de clicares — é isto que o torna usável.</summary>
+    private void GizmoHover(Point screen)
+    {
+        int h = GizmoHit(screen);
+        if (h == _gizHover) return;
+        _gizHover = h;
+        DrawGizmo();
+        if (h >= 0)
+        {
+            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            if (Inspector is not null) Inspector.Text = $"rodar {GizProp[h]}  — arrasta" + (_snap ? "  (snap 15°)" : "");
         }
     }
 
@@ -80,15 +116,8 @@ public partial class MainWindow : Window
         _gizAxis = -1;
         if (GizmoGeom() is not { } g) return false;
         double dx = screen.X - g.c.X, dy = screen.Y - g.c.Y;
-        double dist = Math.Sqrt(dx * dx + dy * dy);
 
-        int best = -1; double bestErr = GizBand;
-        for (int i = 0; i < 3; i++)
-        {
-            double rel = i == 0 ? GizX : i == 1 ? GizY : GizZ;
-            double err = Math.Abs(dist - g.r * rel);
-            if (err < bestErr) { bestErr = err; best = i; }
-        }
+        int best = GizmoHit(screen);
         if (best < 0) return false;
 
         _gizAxis = best;

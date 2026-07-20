@@ -2424,6 +2424,7 @@ public partial class MainWindow : Window
         {
             var sp = e.GetPosition(CanvasHost);
             var cp = ToCanvas(sp);
+            GizmoHover(sp);             // realça o anel sob o cursor antes de clicar
             UpdateHover(cp);            // Canva: hover realça o item sob o cursor
             UpdateGuideHover(sp, cp);   // hover perto de guia → botão ✕
             return;

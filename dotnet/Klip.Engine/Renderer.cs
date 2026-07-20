@@ -65,14 +65,20 @@ public sealed class Renderer
             // camada 3D REAL → renderiza no compositor híbrido (câmara do comp) e compõe aqui
             if (layer.ThreeD is not null)
             {
-                var img3d = ThreeD.Hybrid3D.Render(comp, layer, t);
+                // a escala real da saída está na matriz do canvas (1 no preview, 2/4 no export) —
+                // passá-la faz o 3D nascer já nessa resolução em vez de ser ampliado
+                float outScale = Math.Abs(canvas.TotalMatrix.ScaleX);
+                if (outScale <= 0.01f || float.IsNaN(outScale)) outScale = 1f;
+                var img3d = ThreeD.Hybrid3D.Render(comp, layer, t, outScale);
                 if (img3d is not null)
                 {
                     using (img3d)
                     {
                         int save = canvas.Save();
                         canvas.Scale((float)comp.Width / img3d.Width, (float)comp.Height / img3d.Height);
-                        canvas.DrawImage(img3d, 0, 0, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
+                        // mipmap ligado: quando o 3D vem MAIOR que o destino (preview), reduzir sem
+                        // mipmap serrilha — foi outra fonte do aspeto "choppy"
+                        canvas.DrawImage(img3d, 0, 0, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
                         canvas.RestoreToCount(save);
                     }
                     continue;

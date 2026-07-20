@@ -89,12 +89,14 @@ public static class Hybrid3D
         return result;
     }
 
-    public static SKImage? Render(Comp comp, Layer layer, double t)
+    /// <param name="outScale">escala da SAÍDA (1 no preview, ~2 em 2K, ~4 em 4K). O 3D passa a ser
+    /// renderizado nessa resolução em vez de ser esticado a partir da do comp.</param>
+    public static SKImage? Render(Comp comp, Layer layer, double t, float outScale = 1f)
     {
         if (_gpuFailed || layer.ThreeD is null) return null;
         try
         {
-            return RunOn3DThread(() => RenderCore(comp, layer, t));
+            return RunOn3DThread(() => RenderCore(comp, layer, t, outScale));
         }
         catch (Exception ex)
         {
@@ -104,13 +106,17 @@ public static class Hybrid3D
         }
     }
 
-    private static SKImage? RenderCore(Comp comp, Layer layer, double t)
+    private static SKImage? RenderCore(Comp comp, Layer layer, double t, float outScale)
     {
         if (layer.ThreeD is not { } spec) return null;
         _gpu ??= new GpuSession();
         var gpu = _gpu;
 
-        int w = comp.Width * SS, h = comp.Height * SS;
+        // RESOLUÇÃO DO 3D SEGUE A DA SAÍDA. Antes era sempre comp*SS: ao exportar em 4K, o 3D
+        // vinha de 2K e era ESTICADO — era exatamente daí que vinham os dentes/o aspeto "choppy".
+        // Multiplicador limitado a 4x o comp para não criar FBOs absurdos (memória de vídeo).
+        float mult = Math.Clamp(outScale * SS, SS, 4f);
+        int w = (int)MathF.Ceiling(comp.Width * mult), h = (int)MathF.Ceiling(comp.Height * mult);
         if (_pass is null || _pw != w || _ph != h)
         {
             _pass?.Dispose();
