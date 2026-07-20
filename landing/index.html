@@ -208,17 +208,9 @@
 </head>
 <body>
 
-<nav id="dotnav" aria-label="Secções"></nav>
-
-<header id="hdr">
-  <div class="bar">
-    <a href="#hero" class="mark">KLIP Animator</a>
-    <div class="lang" role="group" aria-label="idioma / language">
-      <button type="button" data-lang="pt" aria-pressed="true">PT</button>
-      <button type="button" data-lang="en" aria-pressed="false">EN</button>
-    </div>
-  </div>
-</header>
+<!-- Sem barra no topo e sem pontos ao lado: num site conduzido por imagem, qualquer moldura
+     fixa parte a fotografia ao meio e rouba-lhe o silêncio. A navegação é o próprio scroll.
+     O PT/EN não desapareceu — desceu para o rodapé, onde não tapa nada. -->
 
 <main>
 
@@ -341,7 +333,13 @@
       </nav>
     </div>
 
-    <div class="rights">© <span id="yr">2026</span> KLIP Animator · Ferreira Korp</div>
+    <div class="rights">
+      © <span id="yr">2026</span> KLIP Animator · Ferreira Korp
+      <span class="lang" role="group" aria-label="idioma / language">
+        <button type="button" data-lang="pt" aria-pressed="true">PT</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </span>
+    </div>
   </div>
 </footer>
 

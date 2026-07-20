@@ -1,12 +1,18 @@
 {
   "latest": {
-    "version": "1.2.0",
+    "version": "1.3.0",
     "date": "2026-07-20",
-    "md5": "6f0cd9181ef9b9160203307f287f7348",
-    "notes": "Edicao de malha A MAO dentro do KLIP: toca na peca para escolher vertices, arestas e faces, e aplica bisel, extrudir, inset, subdividir, suavizar, apagar ou unir. O Blender e o motor de edicao e a janela dele nunca aparece. Cada operacao demora cerca de 7 segundos. A IA tambem pode editar malha pelos verbos mesh_op e mesh_ops. Estudio com chao claro e luz larga: o metal deixa de parecer plastico cinzento.",
+    "md5": "55b81621e11a70867a8c2d153385fe02",
+    "notes": "Rive a serio: mais de metade das animacoes estava congelada por um defeito de leitura da duracao e ja nao esta - 2096 de 2096 tocam. Aba Rive nova para escolher a animacao e mexer nos controlos. As maquinas de estados passam a conduzir o desenho, com simulacao deterministica: o mesmo instante da sempre o mesmo fotograma, no preview, no arrastar e no video exportado. Estudio com chao claro e luz larga - o metal deixa de parecer plastico cinzento. Site sem barra no topo.",
     "url": "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe"
   },
   "history": [
+    {
+      "version": "1.3.0",
+      "date": "2026-07-20",
+      "md5": "55b81621e11a70867a8c2d153385fe02",
+      "notes": "Rive a serio: mais de metade das animacoes estava congelada por um defeito de leitura da duracao e ja nao esta - 2096 de 2096 tocam. Aba Rive nova para escolher a animacao e mexer nos controlos. As maquinas de estados passam a conduzir o desenho, com simulacao deterministica: o mesmo instante da sempre o mesmo fotograma, no preview, no arrastar e no video exportado. Estudio com chao claro e luz larga - o metal deixa de parecer plastico cinzento. Site sem barra no topo."
+    },
     {
       "version": "1.2.0",
       "date": "2026-07-20",
