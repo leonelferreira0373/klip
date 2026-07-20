@@ -121,7 +121,12 @@ public static class RiveLoader
                     {
                         Name = o.S(RiveKeys.AnimNameKey),
                         Fps = (int)o.U(RiveKeys.FpsKey, 60),
-                        DurationFrames = (int)o.U(RiveKeys.DurationKey),
+                        // O DEFEITO É 60, E O EXPORTADOR OMITE A CHAVE QUANDO O VALOR É O DEFEITO.
+                        // Ler 0 aqui fazia o RivePlayer devolver logo o fotograma 0 (tem um
+                        // `if (dur <= 0) return 0;`), ou seja a animação ficava CONGELADA. Medido
+                        // no corpo de ficheiros .riv do próprio runtime: 1213 de 2096 animações
+                        // não escrevem esta chave — mais de metade não tocava.
+                        DurationFrames = (int)o.U(RiveKeys.DurationKey, 60),
                         LoopValue = (int)o.U(RiveKeys.LoopValueKey),
                         Speed = o.D(RiveKeys.SpeedKey, 1),
                     };

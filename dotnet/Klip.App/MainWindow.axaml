@@ -443,12 +443,13 @@
         <!-- ============ PAINEL DIREITO: abas Camadas · 3D · Chat ============ -->
         <Border Grid.Column="3" Background="#FDFDFC" BorderBrush="#ECECEA" BorderThickness="1,0,0,0">
             <DockPanel Margin="10">
-                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*,*,*,*" Margin="0,2,0,8">
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*,*,*,*,*" Margin="0,2,0,8">
                     <Button x:Name="TabLayersBtn" Grid.Column="0" Classes="tab on" Click="OnTab" Tag="layers" Content="Camadas"/>
                     <Button x:Name="Tab3DBtn"     Grid.Column="1" Classes="tab"    Click="OnTab" Tag="3d"     Content="3D"/>
                     <Button x:Name="TabColorBtn"  Grid.Column="2" Classes="tab"    Click="OnTab" Tag="color"  Content="Cor"/>
                     <Button x:Name="TabDawBtn"    Grid.Column="3" Classes="tab"    Click="OnTab" Tag="audio"  Content="Áudio"/>
-                    <Button x:Name="TabChatBtn"   Grid.Column="4" Classes="tab"    Click="OnTab" Tag="chat"   Content="Chat"/>
+                    <Button x:Name="TabRiveBtn"   Grid.Column="4" Classes="tab"    Click="OnTab" Tag="rive"   Content="Rive"/>
+                    <Button x:Name="TabChatBtn"   Grid.Column="5" Classes="tab"    Click="OnTab" Tag="chat"   Content="Chat"/>
                 </Grid>
                 <Grid>
                     <!-- ABA: CAMADAS + INSPECTOR -->
@@ -479,6 +480,13 @@
                     <Border x:Name="PanelColor" IsVisible="False" Background="#F7F7F5" CornerRadius="10" Padding="8,6">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel x:Name="ColorStack" Spacing="2"/>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- ABA: RIVE (conteúdo construído em código — MainWindow.Rive.cs) -->
+                    <Border x:Name="PanelRive" IsVisible="False" Background="#F7F7F5" CornerRadius="10" Padding="8,6">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="RiveStack" Spacing="2"/>
                         </ScrollViewer>
                     </Border>
 

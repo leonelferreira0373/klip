@@ -2671,6 +2671,7 @@ print('KLIP GLB ->', _out)
     {
         Sync3DPanel();                    // painel 3D acompanha a seleção/tempo
         SyncColorPanel();                 // painel de cor idem
+        if (_tab == "rive") SyncRivePanel();   // so quando a aba esta a vista — nao custa por frame
         SyncCtxBar();                     // barra contextual (Canva) reflete o que está selecionado
         if (_selected < 0) { Inspector.Text = "(clica num objeto; arrasta p/ mover; pega no canto p/ escalar)"; return; }
         var l = _layers[_selected];

@@ -57,4 +57,61 @@ public static class RiveKeys
     public const int KfDoubleValueKey = 70, KfColorValueKey = 88, KfIdValueKey = 122;
     // CubicInterpolator
     public const int CiX1 = 63, CiY1 = 64, CiX2 = 65, CiY2 = 66;
+
+    // ================= MÁQUINAS DE ESTADOS =================
+    // Extraído de external/rive-runtime/include/rive/generated/animation/*_base.hpp (typeKey / *PropertyKey).
+    // ARMADILHA: os type keys e os property keys vivem em espaços numéricos DIFERENTES — 138 é o
+    // type key do CubicValueInterpolator E o property key do "name" de um StateMachineComponent.
+    // Não há conflito porque o parser só compara type keys com type keys.
+
+    // ---- type keys (state machine) ----
+    public const int StateMachine = 53;
+    public const int StateMachineComponent = 54;          // abstracto (nunca aparece no ficheiro)
+    public const int StateMachineInput = 55;              // abstracto
+    public const int StateMachineNumber = 56, StateMachineTrigger = 58, StateMachineBool = 59;
+    public const int StateMachineLayer = 57;
+    public const int LayerState = 60;                     // estado "vazio" genérico
+    public const int AnimationState = 61, AnyState = 62, EntryState = 63, ExitState = 64;
+    public const int StateMachineLayerComponent = 66;     // abstracto
+    public const int AdvanceableState = 145;              // abstracto
+    public const int StateTransition = 65, BlendStateTransition = 78;
+    public const int TransitionInputCondition = 67;       // abstracto
+    public const int TransitionTriggerCondition = 68;
+    public const int TransitionValueCondition = 69;       // abstracto
+    public const int TransitionNumberCondition = 70, TransitionBoolCondition = 71;
+    // Lista COMPLETA dos descendentes de LayerState (grep "public LayerState/BlendState" no runtime).
+    // Falhar um deles é caro: o estado não entra na lista da camada e TODOS os índices de destino
+    // das transições a partir daí passam a apontar para o sítio errado.
+    public const int BlendState = 72, BlendStateDirect = 73, BlendState1DInput = 76;
+    public const int BlendState1D = 527, BlendState1DViewModel = 528;
+    public const int BlendAnimation = 74;                 // abstracto
+    public const int BlendAnimation1D = 75, BlendAnimationDirect = 77;
+    public const int StateMachineListener = 114;          // escutas de rato (antigo) — ignoradas por agora
+    public const int StateMachineListenerNovo = 654;      // escutas de rato (formato novo)
+    public const int ListenerTriggerChange = 115, ListenerInputChange = 116;
+    public const int ListenerBoolChange = 117, ListenerNumberChange = 118;
+
+    // ---- property keys (state machine) ----
+    // ARMADILHA de herança: StateMachineBase deriva de Animation (não de StateMachineComponent),
+    // por isso o nome da MÁQUINA usa a chave 55 — a mesma da LinearAnimation. Só os inputs e as
+    // camadas é que usam a 138. Os estados (LayerState → StateMachineLayerComponent → Core) NÃO
+    // têm sequer propriedade de nome: o editor não a exporta, o nome é só do editor.
+    public const int SmNameKey = 138;                     // StateMachineComponent::name (input, camada)
+    public const int SmMachineNameKey = AnimNameKey;      // = 55, Animation::name (a máquina)
+    public const int SmNumberValueKey = 140;              // StateMachineNumber::value   (double)
+    public const int SmBoolValueKey = 141;                // StateMachineBool::value     (bool)
+    public const int AnimationStateAnimIdKey = 149;       // índice na lista de animações do artboard
+    public const int TrStateToIdKey = 151;                // índice na lista de estados da MESMA camada
+    public const int TrFlagsKey = 152;                    // StateTransitionFlags
+    public const int TrInputIdKey = 155;                  // índice na lista de inputs da máquina
+    public const int TrOpValueKey = 156;                  // TransitionConditionOp
+    public const int TrNumberValueKey = 157;              // valor a comparar (double)
+    public const int TrDurationKey = 158;                 // ms ou % conforme a flag
+    public const int TrExitTimeKey = 160;                 // ms ou % conforme a flag
+    public const int TrInterpTypeKey = 349, TrInterpolatorIdKey = 350;
+    public const int TrRandomWeightKey = 537;
+    public const int LayerStateFlagsKey = 536;            // bit0 = escolha aleatória de transição
+    public const int BlendAnimIdKey = 165, BlendAnim1DValueKey = 166;
+    public const int BlendState1DInputIdKey = 167, BlendAnimDirectInputIdKey = 168;
+    public const int AdvanceableSpeedKey = 292;
 }
