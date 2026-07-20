@@ -1,12 +1,18 @@
 {
   "latest": {
-    "version": "1.0.5",
-    "date": "2026-07-15",
-    "md5": "f897ce8050592f559e8e40b5edcf1d0b",
-    "notes": "Icone de creditos: cartao lilas no lugar do losango, tambem no 3o cartao da introducao. Janela com moldura do Windows (abre maximizada, barra de tarefas revela-se, sem titulo duplicado).",
+    "version": "1.1.0",
+    "date": "2026-07-20",
+    "md5": "4817260d1a0842082fa9116abf0f3fb0",
+    "notes": "Materiais completos na importacao 3D (relevo, metalico-rugosidade, emissao, translucidez). Texturas assadas na exportacao: os materiais procedurais do Blender deixam de se perder. Editar objectos 3D por palavras. Gradientes multi-stop e livros PANTONE ate ao CMYK. Video 4K com som. Imagens no chat separadas da tela. Topologia medida com inspect_mesh.",
     "url": "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe"
   },
   "history": [
+    {
+      "version": "1.1.0",
+      "date": "2026-07-20",
+      "md5": "4817260d1a0842082fa9116abf0f3fb0",
+      "notes": "Materiais completos na importacao 3D (relevo, metalico-rugosidade, emissao, translucidez). Texturas assadas na exportacao: os materiais procedurais do Blender deixam de se perder. Editar objectos 3D por palavras. Gradientes multi-stop e livros PANTONE ate ao CMYK. Video 4K com som. Imagens no chat separadas da tela. Topologia medida com inspect_mesh."
+    },
     {
       "version": "1.0.5",
       "date": "2026-07-15",
