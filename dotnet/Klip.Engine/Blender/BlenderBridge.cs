@@ -173,6 +173,36 @@ public static class BlenderBridge
     }
 
     /// <summary>
+    /// Corre um script Python DENTRO de um .blend existente, em vez de numa cena vazia.
+    ///
+    /// É isto que permite EDITAR um objeto em vez de o refazer: o .blend é a fonte sem perdas, com
+    /// os modificadores, os nós de material e a hierarquia todos de pé. Reconstruir a partir do
+    /// glTF perderia tudo isso — daí abrir o ficheiro original.
+    ///
+    /// Nota: o ficheiro vem ANTES das opções na linha de comando do Blender, e não se usa
+    /// --factory-startup aqui (isso descartaria preferências que o próprio .blend precisa).
+    /// </summary>
+    public static BlenderResult RunScriptOnBlend(string blendPath, string pythonCode, string[]? args = null,
+                                                 TimeSpan? timeout = null, Action<string>? onLine = null)
+    {
+        if (string.IsNullOrWhiteSpace(pythonCode)) throw new ArgumentException("script vazio", nameof(pythonCode));
+        if (!File.Exists(blendPath)) throw new FileNotFoundException("ficheiro .blend não encontrado", blendPath);
+        var exe = Executable ?? throw new InvalidOperationException(
+            "Blender não encontrado. Instala-o ou aponta a variável de ambiente KLIP_BLENDER ao blender.exe.");
+
+        var dir = Path.Combine(Path.GetTempPath(), "klip_blender");
+        Directory.CreateDirectory(dir);
+        var script = Path.Combine(dir, "klip_edit_" + Guid.NewGuid().ToString("N")[..12] + ".py");
+        File.WriteAllText(script, pythonCode, new UTF8Encoding(false));
+
+        var argv = new List<string> { "-b", Path.GetFullPath(blendPath), "-P", script };
+        if (args is { Length: > 0 }) { argv.Add("--"); argv.AddRange(args); }
+
+        try { return Run(exe, argv, timeout ?? TimeSpan.FromMinutes(30), onLine); }
+        finally { try { File.Delete(script); } catch { } }
+    }
+
+    /// <summary>
     /// Render de uma imagem: corre o script e só devolve se o ficheiro REALMENTE apareceu.
     /// Apaga o alvo antes de correr — senão um render falhado passaria por bom à custa de um PNG velho.
     /// Sem `args`, o script recebe o destino como único argumento (o contrato mais simples possível:

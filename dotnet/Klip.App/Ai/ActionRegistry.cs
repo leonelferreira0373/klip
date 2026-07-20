@@ -112,6 +112,12 @@ public sealed class ActionRegistry
             P(("path", "string", "caminho absoluto da imagem")), new[] { "path" },
             a => new { id = _w.ApiInsertImage(Str(a, "path") ?? "") ?? throw new InvalidOperationException("imagem ilegível") }),
 
+        ["blender_edit"] = new("EDITA um objeto 3D que já está na cena, em vez de o refazer do zero. Abre o .blend guardado (com modificadores, nós de material e hierarquia intactos), corre o teu script lá dentro e reexporta a malha; a camada mantém-se e actualiza-se na tela. USA ISTO sempre que o utilizador pedir uma ALTERAÇÃO a um objeto que tu próprio modelaste («faz os cantos mais afiados», «mais alto», «muda o metal para cobre») — remodelar do zero perde tudo o que ele já ajustou. O objeto está em bpy.data.objects; não apagues a cena.",
+            P(("id", "string", "camada do objeto 3D"), ("script", "string", "Python bpy que ALTERA a cena já aberta"),
+              ("timeout_sec", "number", "default 600")),
+            new[] { "id", "script" },
+            a => _w.ApiBlenderEdit(Str(a, "id") ?? "", Str(a, "script") ?? "", Num(a, "timeout_sec"))),
+
         ["set_gradient"] = new("Gradiente MULTI-STOP (2 a 8 paragens) no preenchimento. stops=\"#RRGGBB@0, #RRGGBB@0.35, #RRGGBB@1\" (o @pos é opcional — sem ele distribui igualmente). kind=linear|radial|conic. angle=graus (90=topo→fundo). cx/cy=0-1 centro (radial/cónico). radius=0-1 fracção do maior lado. tile=clamp|repeat|mirror. SUBSTITUI o gradiente inteiro; para mexer numa só paragem usa set_stop.",
             P(("id", "string", "camada"), ("stops", "string", "\"#RRGGBB@pos, …\""), ("kind", "string", "linear|radial|conic"),
               ("angle", "number", "graus"), ("cx", "number", "0-1"), ("cy", "number", "0-1"),

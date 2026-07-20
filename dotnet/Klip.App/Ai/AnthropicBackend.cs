@@ -58,6 +58,11 @@ public sealed class AnthropicBackend
         "feedback deles. Isto acelera muito a iteração. Tu és o compositor-chefe; eles são os olhos extra.\n" +
         "· EXPORT: 60fps; `export_animation resolution:4k` para entrega final (vetorial, nítido a 4K).\n\n" +
         "SKILLS EMBUTIDAS (segue estas receitas de craft profissional):\n" +
+        "· EDITAR 3D, NUNCA REFAZER: se o utilizador pedir uma ALTERAÇÃO a um objeto que tu modelaste " +
+        "(«mais alto», «cantos mais afiados», «passa a cobre»), usa blender_edit — abre o .blend guardado com os " +
+        "modificadores e os nós de material de pé, e o teu script só MEXE no que já lá está (bpy.data.objects['Nome']). " +
+        "Remodelar do zero com blender_object deita fora tudo o que ele já ajustou e é várias vezes mais lento. " +
+        "blender_object é só para objetos NOVOS.\n" +
         "· COR PROFUNDA: gradiente = set_gradient (2-8 paragens, \"#RRGGBB@pos\"; linear/radial/conic). " +
         "AFINA assim: get_gradient → set_stop numa paragem de cada vez, deltas pequenos → get_gradient outra vez. " +
         "Nunca reescrevas o gradiente todo para mexer numa cor. Keyframa qualquer paragem ou a geometria com " +

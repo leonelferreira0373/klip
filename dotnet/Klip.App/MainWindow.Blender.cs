@@ -89,6 +89,98 @@ print('KLIP GLB ->', _out)
         };
     }
 
+    /// <summary>
+    /// blender_edit: EDITAR o objeto que já está na cena, em vez de o refazer.
+    ///
+    /// Abre o .blend guardado (a fonte, com modificadores, nós de material e hierarquia intactos),
+    /// corre o script de alteração lá dentro, volta a gravar a fonte e reexporta a malha. Reconstruir
+    /// a partir do glTF perderia tudo o que não é triângulo — por isso é o .blend que manda.
+    ///
+    /// A camada mantém-se: só o ficheiro da malha muda. Como a chave da cache do compositor inclui a
+    /// data de escrita do ficheiro, o objeto na tela actualiza-se sozinho.
+    /// </summary>
+    public object ApiBlenderEdit(string id, string script, double? timeoutSec)
+    {
+        if (string.IsNullOrWhiteSpace(script)) throw new InvalidOperationException("script vazio");
+        if (!BlenderBridge.IsAvailable)
+            throw new InvalidOperationException("Blender não encontrado. Define KLIP_BLENDER com o caminho do blender.exe.");
+
+        int ix = FindLayer(id);
+        var layer = Sel(id);
+        var blend = layer.ThreeD?.SourceBlend;
+        if (string.IsNullOrWhiteSpace(blend) || !System.IO.File.Exists(blend))
+            throw new InvalidOperationException(
+                $"a camada «{layer.Name}» não tem fonte .blend guardada, portanto não há o que editar. " +
+                "Só objetos criados com blender_object trazem a fonte; para os importados de fora, remodela com blender_object.");
+
+        // malha NOVA a cada edição: sobrescrever a antiga com o Blender ainda a ler dela dá ficheiros
+        // truncados, e uma malha com o mesmo nome enganava a cache do compositor.
+        var dir = System.IO.Path.GetDirectoryName(blend)!;
+        var obj = System.IO.Path.Combine(dir, "klip_" + Guid.NewGuid().ToString("N")[..10] + ".glb");
+
+        var full = script + @"
+
+# ---- KLIP: regravar a fonte e reexportar a malha editada ----
+import bpy as _bpy, sys as _sys
+_args = _sys.argv[_sys.argv.index('--') + 1:]
+_out, _blend = _args[0], _args[1]
+try:
+    _bpy.ops.wm.save_as_mainfile(filepath=_blend)
+except Exception as _e:
+    print('KLIP: .blend nao regravou:', _e)
+try:
+    _bpy.ops.object.select_all(action='SELECT')
+except Exception:
+    pass
+_bpy.ops.export_scene.gltf(filepath=_out, export_format='GLB',
+                           export_apply=True, export_materials='EXPORT',
+                           export_normals=True, export_yup=True)
+print('KLIP GLB ->', _out)
+";
+        UiChat("·", $"Blender a editar «{layer.Name}»…");
+        var sw = Stopwatch.StartNew();
+        var r = BlenderBridge.RunScriptOnBlend(blend!, full, new[] { obj, blend! },
+            TimeSpan.FromSeconds(Math.Clamp(timeoutSec ?? 600, 5, 7200)),
+            line => { if (line.Contains("KLIP GLB")) UiChat("·", "malha reexportada"); });
+        sw.Stop();
+
+        if (!System.IO.File.Exists(obj) || new System.IO.FileInfo(obj).Length == 0)
+            throw new InvalidOperationException("a edição não produziu malha nenhuma.\n" + r.ErrorTail(600));
+
+        uint baseArgb = layer.FillArgb;
+        double metal = layer.ThreeD?.Metal ?? 0.0, rough = layer.ThreeD?.Rough ?? 0.4;
+        try
+        {
+            var g = Klip.Engine.ThreeD.GltfMesh.Load(obj);
+            baseArgb = g.pbr.BaseArgb; metal = g.pbr.Metal; rough = Math.Clamp(g.pbr.Rough, 0.04, 1.0);
+        }
+        catch { /* sem material no ficheiro → fica o que a camada já tinha */ }
+
+        var old = layer.ThreeD?.MeshPath;
+        Avalonia.Threading.Dispatcher.UIThread.Invoke(() => Mutate(() =>
+        {
+            var l = _layers[ix];
+            _layers[ix] = l with
+            {
+                FillArgb = baseArgb,
+                ThreeD = (l.ThreeD ?? new Klip.Model.Extrude3D()) with
+                {
+                    MeshPath = obj, SourceBlend = blend, Rough = rough, Metal = metal,
+                },
+            };
+        }));
+        // a malha antiga já não é referida por ninguém
+        if (old is { Length: > 0 } && old != obj) { try { System.IO.File.Delete(old); } catch { } }
+
+        long kb = new System.IO.FileInfo(obj).Length / 1024;
+        UiChat("·", $"«{layer.Name}» editado ({kb} KB) em {sw.Elapsed.TotalSeconds:0.0}s");
+        return new
+        {
+            ok = true, id = layer.Name, mesh = obj, source = blend,
+            kb, seconds = Math.Round(sw.Elapsed.TotalSeconds, 2),
+        };
+    }
+
     /// <summary>Cria a camada que segura a malha, já com o material que veio do .glb.</summary>
     private string AddMeshLayer(string meshPath, string blendPath, string? name,
                                 uint argb, double rough, double metal)
