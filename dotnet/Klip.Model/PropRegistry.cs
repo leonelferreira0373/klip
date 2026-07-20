@@ -30,6 +30,20 @@ public static class PropRegistry
     private static PropDescriptor Col(string p, Func<Layer, ColorTrack?> g, Func<Layer, ColorTrack?, Layer> s, Func<Layer, uint> seed)
         => new(p, ChannelKind.Color, null, null, g, s, seed);
 
+    /// <summary>Gradiente da camada, criado LAZY a partir do par legado — é o que permite keyframar
+    /// uma paragem numa camada que ainda nunca teve gradiente nenhum.</summary>
+    private static GradientSpec Grad(Layer l)
+        => l.FillGradient ?? GradientSpec.Seed(l.FillArgb, l.FillArgb2, l.FillRadial, l.GradAngle);
+
+    private static PropDescriptor StopCol(int i) => Col($"gradient.stop{i}.color",
+        l => l.FillGradient is { } g && i < g.Stops.Count ? g.Stops[i].Color : null,
+        (l, c) => l with { FillGradient = Grad(l).WithStopColor(i, c) },
+        l => l.FillGradient is { } g && i < g.Stops.Count ? g.Stops[i].EvalArgb(0) : l.FillArgb);
+
+    private static PropDescriptor StopPos(int i, double def) => Scal($"gradient.stop{i}.pos",
+        l => l.FillGradient is { } g && i < g.Stops.Count ? g.Stops[i].Offset : null,
+        (l, t) => l with { FillGradient = Grad(l).WithStopOffset(i, t) }, def);
+
     /// <summary>Superset de TODAS as props animáveis (corrige o gap onde scale_x/scale_y/skew_x não davam kf).</summary>
     public static readonly IReadOnlyDictionary<string, PropDescriptor> Descriptors = new Dictionary<string, PropDescriptor>
     {
@@ -53,6 +67,19 @@ public static class PropRegistry
         ["color.fill"]   = Col("color.fill",   l => l.FillColor,   (l, c) => l with { FillColor = c },   l => l.FillColor?.Eval(0) ?? l.FillArgb),
         ["color.stroke"] = Col("color.stroke", l => l.StrokeColor, (l, c) => l with { StrokeColor = c }, l => l.StrokeColor?.Eval(0) ?? l.StrokeArgb ?? 0xFF000000u),
         ["color.fill2"]  = Col("color.fill2",  l => l.FillColor2,  (l, c) => l with { FillColor2 = c },  l => l.FillColor2?.Eval(0) ?? l.FillArgb2 ?? l.FillArgb),
+        // ---- Gradiente multi-stop: geometria E cada paragem endereçáveis e keyframáveis ----
+        ["gradient.angle"]    = Scal("gradient.angle",    l => l.FillGradient?.Angle,   (l, t) => l with { FillGradient = Grad(l) with { Angle = t } }, 90),
+        ["gradient.center.x"] = Scal("gradient.center.x", l => l.FillGradient?.CenterX, (l, t) => l with { FillGradient = Grad(l) with { CenterX = t } }, 0.5),
+        ["gradient.center.y"] = Scal("gradient.center.y", l => l.FillGradient?.CenterY, (l, t) => l with { FillGradient = Grad(l) with { CenterY = t } }, 0.5),
+        ["gradient.radius"]   = Scal("gradient.radius",   l => l.FillGradient?.Radius,  (l, t) => l with { FillGradient = Grad(l) with { Radius = t } }, 0.62),
+        ["gradient.stop0.color"] = StopCol(0), ["gradient.stop0.pos"] = StopPos(0, 0.00),
+        ["gradient.stop1.color"] = StopCol(1), ["gradient.stop1.pos"] = StopPos(1, 1.00),
+        ["gradient.stop2.color"] = StopCol(2), ["gradient.stop2.pos"] = StopPos(2, 0.50),
+        ["gradient.stop3.color"] = StopCol(3), ["gradient.stop3.pos"] = StopPos(3, 0.50),
+        ["gradient.stop4.color"] = StopCol(4), ["gradient.stop4.pos"] = StopPos(4, 0.50),
+        ["gradient.stop5.color"] = StopCol(5), ["gradient.stop5.pos"] = StopPos(5, 0.50),
+        ["gradient.stop6.color"] = StopCol(6), ["gradient.stop6.pos"] = StopPos(6, 0.50),
+        ["gradient.stop7.color"] = StopCol(7), ["gradient.stop7.pos"] = StopPos(7, 0.50),
         // ---- Fase 7: efeitos premium (spec-mãe criado LAZY ao 1º keyframe, como AddKeyframe semeia Tracks) ----
         ["glow.radius"]    = Scal("glow.radius",    l => l.Glow?.Radius,        (l, t) => l with { Glow = (l.Glow ?? new GlowSpec()) with { Radius = t } }),
         ["glow.intensity"] = Scal("glow.intensity", l => l.Glow?.Intensity,     (l, t) => l with { Glow = (l.Glow ?? new GlowSpec()) with { Intensity = t } }, 1),
@@ -93,6 +120,9 @@ public static class PropRegistry
         ["lifetime"] = "particles.lifetime", ["life"] = "particles.lifetime",
         ["speed"] = "particles.speed", ["gravity"] = "particles.gravity", ["grav"] = "particles.gravity",
         ["spread"] = "particles.spread", ["spawn_radius"] = "particles.spawn_radius", ["particle_scale"] = "particles.scale",
+        // Gradiente ("spread" já está tomado pelas partículas — não reutilizar)
+        ["grad_angle"] = "gradient.angle", ["gradient_angle"] = "gradient.angle",
+        ["grad_cx"] = "gradient.center.x", ["grad_cy"] = "gradient.center.y", ["grad_radius"] = "gradient.radius",
     };
 
     public static string Canonical(string p)

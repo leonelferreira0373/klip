@@ -2587,6 +2587,7 @@ public partial class MainWindow : Window
     private void UpdateInspector()
     {
         Sync3DPanel();                    // painel 3D acompanha a seleção/tempo
+        SyncColorPanel();                 // painel de cor idem
         SyncCtxBar();                     // barra contextual (Canva) reflete o que está selecionado
         if (_selected < 0) { Inspector.Text = "(clica num objeto; arrasta p/ mover; pega no canto p/ escalar)"; return; }
         var l = _layers[_selected];
@@ -2995,7 +2996,18 @@ public partial class MainWindow : Window
         scale = l.Scale?.Eval(0) ?? 1.0,
         rotation = l.Rotation?.Eval(0) ?? 0,
         fill = "#" + (l.FillArgb & 0xFFFFFF).ToString("X6"),
-        gradient = l.FillArgb2 is not null,
+        // a IA precisa de LER o gradiente para o afinar por deltas — sem isto só sabia que "há um"
+        gradient = l.FillGradient is not null || l.FillArgb2 is not null,
+        gradient_kind = l.FillGradient is { } gk ? gk.Kind.ToString().ToLowerInvariant()
+                      : (l.FillArgb2 is null ? "none" : (l.FillRadial ? "radial" : "linear")),
+        gradient_angle = l.FillGradient is { } ga ? ga.EvalAngle(0) : l.GradAngle,
+        gradient_stops = l.FillGradient is { } gs
+            ? gs.Stops.Select(s => "#" + (s.EvalArgb(0) & 0xFFFFFF).ToString("X6") + "@"
+                                 + s.EvalPos(0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)).ToArray()
+            : (l.FillArgb2 is uint lf2
+                ? new[] { "#" + (l.FillArgb & 0xFFFFFF).ToString("X6") + "@0", "#" + (lf2 & 0xFFFFFF).ToString("X6") + "@1" }
+                : System.Array.Empty<string>()),
+        spot = l.FillSpot?.Code,
         clipped = l.ClipD is not null,
     }).ToArray();
 

@@ -112,6 +112,50 @@ public sealed class ActionRegistry
             P(("path", "string", "caminho absoluto da imagem")), new[] { "path" },
             a => new { id = _w.ApiInsertImage(Str(a, "path") ?? "") ?? throw new InvalidOperationException("imagem ilegível") }),
 
+        ["set_gradient"] = new("Gradiente MULTI-STOP (2 a 8 paragens) no preenchimento. stops=\"#RRGGBB@0, #RRGGBB@0.35, #RRGGBB@1\" (o @pos é opcional — sem ele distribui igualmente). kind=linear|radial|conic. angle=graus (90=topo→fundo). cx/cy=0-1 centro (radial/cónico). radius=0-1 fracção do maior lado. tile=clamp|repeat|mirror. SUBSTITUI o gradiente inteiro; para mexer numa só paragem usa set_stop.",
+            P(("id", "string", "camada"), ("stops", "string", "\"#RRGGBB@pos, …\""), ("kind", "string", "linear|radial|conic"),
+              ("angle", "number", "graus"), ("cx", "number", "0-1"), ("cy", "number", "0-1"),
+              ("radius", "number", "0-1"), ("tile", "string", "clamp|repeat|mirror")),
+            new[] { "id", "stops" },
+            a => _w.ApiSetGradient(Str(a, "id") ?? "", Str(a, "stops") ?? "", Str(a, "kind"),
+                                   Num(a, "angle"), Num(a, "cx"), Num(a, "cy"), Num(a, "radius"), Str(a, "tile"))),
+
+        ["get_gradient"] = new("Lê o gradiente COMPLETO de uma camada no tempo t: kind, angle, cx, cy, radius, tile e todas as paragens com cor+posição. Usa ANTES e DEPOIS de ajustar, para trabalhares por deltas em vez de reescrever tudo.",
+            P(("id", "string", "camada"), ("t", "number", "tempo em s (default 0)")), new[] { "id" },
+            a => _w.ApiGetGradient(Str(a, "id") ?? "", Num(a, "t") ?? 0)),
+
+        ["set_stop"] = new("Ajuste MILIMÉTRICO de UMA paragem: index 0-based, color #RRGGBB(AA) e/ou pos 0-1. Não toca nas outras paragens nem na geometria.",
+            P(("id", "string", "camada"), ("index", "number", "0-based"), ("color", "string", "#RRGGBB"), ("pos", "number", "0-1")),
+            new[] { "id", "index" },
+            a => _w.ApiSetStop(Str(a, "id") ?? "", (int)(Num(a, "index") ?? 0), Str(a, "color"), Num(a, "pos"))),
+
+        ["add_stop"] = new("Insere uma paragem nova na posição pos (0-1) com a cor dada. Máximo 8.",
+            P(("id", "string", "camada"), ("color", "string", "#RRGGBB"), ("pos", "number", "0-1")),
+            new[] { "id", "color", "pos" },
+            a => _w.ApiAddStop(Str(a, "id") ?? "", Str(a, "color") ?? "#000000", Num(a, "pos") ?? 0.5)),
+
+        ["remove_stop"] = new("Remove a paragem index (0-based). Mínimo 2 paragens.",
+            P(("id", "string", "camada"), ("index", "number", "0-based")), new[] { "id", "index" },
+            a => _w.ApiRemoveStop(Str(a, "id") ?? "", (int)(Num(a, "index") ?? 0))),
+
+        ["set_spot"] = new("Aplica uma cor SPOT pelo código (ex.: \"PANTONE 185 C\", \"HKS 43 K\", \"TOYO 0044\") no preenchimento, ou no contorno se target=stroke. A cor traz a chapa CMYK do livro, portanto atravessa o export_cmyk sem ser reinventada.",
+            P(("id", "string", "camada"), ("code", "string", "ex.: PANTONE 185 C"), ("target", "string", "fill|stroke")),
+            new[] { "id", "code" },
+            a => _w.ApiSetSpot(Str(a, "id") ?? "", Str(a, "code") ?? "", Str(a, "target"))),
+
+        ["find_spot"] = new("Dado um hex, devolve as N cores spot mais próximas por ΔE. Serve para traduzir uma paleta de ecrã para impressão.",
+            P(("hex", "string", "#RRGGBB"), ("n", "number", "quantas (default 5)"), ("library", "string", "filtrar por livro, ex.: Solid Coated")),
+            new[] { "hex" },
+            a => _w.ApiFindSpot(Str(a, "hex") ?? "", (int)(Num(a, "n") ?? 5), Str(a, "library"))),
+
+        ["list_spot"] = new("Procura cores spot cujo código/nome contenha o filtro (ex.: \"185\", \"Cool Gray\", \"Reflex\"). Devolve código + hex + CMYK.",
+            P(("filter", "string", "texto a procurar"), ("limit", "number", "default 40"), ("library", "string", "filtrar por livro")),
+            new[] { "filter" },
+            a => _w.ApiListSpot(Str(a, "filter"), (int)(Num(a, "limit") ?? 40), Str(a, "library"))),
+
+        ["list_palettes"] = new("Que livros de cor existem nesta máquina (PANTONE, HKS, TOYO, DIC, FOCOLTONE, TRUMATCH…) e quantas cores tem cada um.",
+            P(), new string[0], a => _w.ApiListPalettes()),
+
         ["import_mesh"] = new("Traz um objeto 3D do disco (.glb/.gltf/.obj) para a cena, COM os materiais e texturas do ficheiro (um material por parte). Usa isto depois de modelares com blender_object, ou para ficheiros que o utilizador já tenha.",
             P(("path", "string", "caminho absoluto .glb/.gltf/.obj"), ("x", "number", "posição x (opcional)"),
               ("y", "number", "posição y (opcional)"), ("scale", "number", "escala (opcional)")),

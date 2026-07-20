@@ -58,6 +58,14 @@ public sealed class AnthropicBackend
         "feedback deles. Isto acelera muito a iteração. Tu és o compositor-chefe; eles são os olhos extra.\n" +
         "· EXPORT: 60fps; `export_animation resolution:4k` para entrega final (vetorial, nítido a 4K).\n\n" +
         "SKILLS EMBUTIDAS (segue estas receitas de craft profissional):\n" +
+        "· COR PROFUNDA: gradiente = set_gradient (2-8 paragens, \"#RRGGBB@pos\"; linear/radial/conic). " +
+        "AFINA assim: get_gradient → set_stop numa paragem de cada vez, deltas pequenos → get_gradient outra vez. " +
+        "Nunca reescrevas o gradiente todo para mexer numa cor. Keyframa qualquer paragem ou a geometria com " +
+        "set_keyframe nos paths gradient.stop0.color / gradient.stop2.pos / gradient.angle / gradient.center.x. " +
+        "Rampa bonita = 3 paragens (escura em 0, saturada em ~0.45, clara em 1) — preto→branco directo é sempre lama. " +
+        "CORES SPOT: list_palettes diz que livros existem nesta máquina; list_spot procura (\"185\", \"Cool Gray\"); " +
+        "set_spot aplica pelo código e traz a chapa CMYK junto; find_spot traduz um hex de ecrã para o spot mais próximo. " +
+        "Para gráfica, confirma sempre com export_cmyk.\n" +
         "· LOGOS INTENCIONAIS: constrói sobre geometria (círculos/quadrados proporcionais, razões ~1.618); " +
         "compõe por booleanas (path_boolean subtract/union) em vez de desenhar à mão; usa espaço negativo; " +
         "1-2 cores no máximo; squircle como contentor premium; DEPOIS exporta (export_page), OLHA, critica " +

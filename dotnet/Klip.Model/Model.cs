@@ -275,7 +275,11 @@ public sealed record Layer(
     ParticleSpec? Particles = null,      // se != null, a camada é um EMISSOR (o Shape é o sprite)
     // ---- Product Studio: profundidade 3D da camada (px→mundo /220; +Z = mais perto da câmara) ----
     Track? PosZ = null,                  // colocação em Z p/ camadas 3D (perspetiva + DoF); null = z=0
-    Track? RotationZ = null)             // roll 3D (giro no plano da face) p/ camadas ThreeD; leque de cartões
+    Track? RotationZ = null,             // roll 3D (giro no plano da face) p/ camadas ThreeD; leque de cartões
+    // ---- Cor profunda (aditivo, SEMPRE no fim → .klip antigos abrem na mesma; null = comportamento de antes) ----
+    GradientSpec? FillGradient = null,   // gradiente MULTI-STOP; quando != null MANDA sobre o par FillArgb/FillArgb2
+    SpotRef? FillSpot = null,            // etiqueta spot (PANTONE/HKS/…) da cor de preenchimento — nome + chapa CMYK
+    SpotRef? StrokeSpot = null)          // idem, para o contorno
 {
     /// <summary>Chave estável p/ endereçamento (aponta-e-instrui, IA): Id se existir, senão Name.</summary>
     [System.Text.Json.Serialization.JsonIgnore] public string Key => Id ?? Name;

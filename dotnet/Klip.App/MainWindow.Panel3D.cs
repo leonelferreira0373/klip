@@ -53,18 +53,22 @@ public partial class MainWindow : Window
         _tab = t;
         if (t == "3d" && !_p3dBuilt) { Build3DPanel(); _p3dBuilt = true; }
         if (t == "audio") { BuildDawTab(); DrawWaveform(); }
+        if (t == "color" && !_pcBuilt) { BuildColorPanel(); _pcBuilt = true; }
 
         TabLayers.IsVisible = t == "layers";
         Panel3D.IsVisible = t == "3d";
+        PanelColor.IsVisible = t == "color";
         PanelDaw.IsVisible = t == "audio";
         ChatHost.IsVisible = t == "chat";
         TabOn(TabLayersBtn, t == "layers");
         TabOn(Tab3DBtn, t == "3d");
+        TabOn(TabColorBtn, t == "color");
         TabOn(TabDawBtn, t == "audio");
         TabOn(TabChatBtn, t == "chat");
 
         _p3dOpen = t == "3d";
         if (_p3dOpen) Sync3DPanel();
+        if (t == "color") SyncColorPanel();
         P3DBtn.Foreground = new SolidColorBrush(Color.Parse(_p3dOpen ? "#6D5EF6" : "#5E5E5B"));
         if (t == "chat") ChatInput?.Focus();
     }
