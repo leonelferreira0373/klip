@@ -135,14 +135,40 @@ public sealed class AnthropicBackend
         return tools;
     }
 
-    public async Task Send(string prompt, Action<string, string> onEvent, CancellationToken ct)
+    public Task Send(string prompt, Action<string, string> onEvent, CancellationToken ct)
+        => Send(prompt, null, onEvent, ct);
+
+    /// <param name="images">imagens anexadas à MENSAGEM (não à tela). É por aqui que se mostra
+    /// uma referência à IA sem a sujar no documento — o utilizador cola ou larga no chat e a IA vê.</param>
+    public async Task Send(string prompt, IReadOnlyList<string>? images,
+                           Action<string, string> onEvent, CancellationToken ct)
     {
         string baseUrl = CreditsMode ? AiConfig.ResolveWorkerUrl() : "https://api.anthropic.com";
         string apiKey = CreditsMode ? "klip-credits" : AiConfig.ResolveApiKey();
         if (!CreditsMode && string.IsNullOrEmpty(apiKey))
         { onEvent("error", "Sem chave BYOK (define ANTHROPIC_API_KEY ou %APPDATA%\\Klip\\ai.json)."); return; }
 
-        _messages.Add(new JsonObject { ["role"] = "user", ["content"] = prompt });
+        // Com imagens, a mensagem deixa de ser uma string e passa a ser uma lista de blocos.
+        // As imagens vão PRIMEIRO: a Anthropic recomenda-o, e na prática o modelo agarra-se melhor
+        // ao pedido quando já viu a referência antes de ler o texto.
+        if (images is { Count: > 0 })
+        {
+            var blocos = new JsonArray();
+            foreach (var p in images)
+            {
+                var b64 = ImageToB64(p);
+                if (b64 is null) continue;
+                blocos.Add(new JsonObject
+                {
+                    ["type"] = "image",
+                    ["source"] = new JsonObject
+                    { ["type"] = "base64", ["media_type"] = "image/png", ["data"] = b64 },
+                });
+            }
+            blocos.Add(new JsonObject { ["type"] = "text", ["text"] = prompt });
+            _messages.Add(new JsonObject { ["role"] = "user", ["content"] = blocos });
+        }
+        else _messages.Add(new JsonObject { ["role"] = "user", ["content"] = prompt });
 
         while (!ct.IsCancellationRequested)
         {

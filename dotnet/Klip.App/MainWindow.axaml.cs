@@ -207,6 +207,14 @@ public partial class MainWindow : Window
     // ================= import: drag&drop + botão ＋ =================
     private void OnDrop(object? s, DragEventArgs e)
     {
+        // anexo do chat arrastado PARA A TELA → passa a ser camada (o caminho inverso do WireChatImages)
+        if (e.DataTransfer?.TryGetText() is { Length: > 0 } txt && txt.StartsWith("klip-anexo:"))
+        {
+            var p0 = txt["klip-anexo:".Length..];
+            if (File.Exists(p0)) { ImportFile(p0); e.Handled = true; }
+            return;
+        }
+
         var files = e.DataTransfer?.TryGetFiles();
         if (files is null) return;
         foreach (var f in files)
@@ -1562,9 +1570,13 @@ print('KLIP GLB ->', _out)
     private async void OnSendChat(object? s, RoutedEventArgs e)
     {
         var prompt = ChatInput.Text?.Trim();
-        if (string.IsNullOrEmpty(prompt) || _chatCts is not null) return;
+        var anexos = TomarAnexos();
+        // com imagens anexadas, uma mensagem vazia continua a fazer sentido ("olha para isto")
+        if (string.IsNullOrEmpty(prompt) && anexos.Count == 0) return;
+        if (_chatCts is not null) return;
+        if (string.IsNullOrEmpty(prompt)) prompt = "Olha para esta imagem.";
         ChatInput.Text = "";
-        AppendChat("Tu:", prompt);
+        AppendChat("Tu:", prompt + (anexos.Count > 0 ? $"   [{anexos.Count} imagem(ns)]" : ""));
         ChatSend.IsVisible = false;
         ChatStop.IsVisible = true;
         ChatInput.IsEnabled = false;
@@ -1610,7 +1622,7 @@ print('KLIP GLB ->', _out)
                 _api.CreditsMode = _aiSelection != "byok";   // créditos = CF worker; byok = chave própria
                 _api.ModelId = _aiSelection switch
                 { "sonnet" => "claude-sonnet-5", "haiku" => "claude-haiku-4-5", _ => "claude-opus-4-8" };
-                await System.Threading.Tasks.Task.Run(() => _api.Send(prompt!, OnEvent, _chatCts.Token));
+                await System.Threading.Tasks.Task.Run(() => _api.Send(prompt!, anexos, OnEvent, _chatCts.Token));
             }
         }
         catch (Exception ex) { AppendChat("✗", ex.Message); }

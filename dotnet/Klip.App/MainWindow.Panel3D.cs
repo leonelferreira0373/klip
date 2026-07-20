@@ -40,6 +40,8 @@ public partial class MainWindow : Window
     {
         base.OnLoaded(e);
         DockChatIntoPanel();     // o chat deixa de flutuar sobre a tela e passa a viver na aba
+        WireChatImages();        // colar/largar imagens no chat, e arrastar entre chat e tela
+        WireLayerDrag();         // arrastar uma camada da lista para o chat
         ShowTab("layers");
     }
 

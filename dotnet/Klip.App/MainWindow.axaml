@@ -381,6 +381,9 @@
                                 <TextBlock x:Name="ThinkingWord" Text="A pensar…" FontSize="12.5"
                                            FontWeight="SemiBold" Foreground="#6D5EF6" VerticalAlignment="Center"/>
                             </StackPanel>
+                            <!-- imagens anexadas À MENSAGEM (não à tela) — cola, larga ou arrasta uma camada para aqui -->
+                            <StackPanel x:Name="ChatAnexos" Orientation="Horizontal" Spacing="5"
+                                        Margin="0,6,0,0" IsVisible="False"/>
                             <DockPanel Margin="0,2,0,0">
                                 <Button Classes="side" Width="30" Height="30" DockPanel.Dock="Left" Content="＋"
                                         Click="OnAttach" ToolTip.Tip="Adicionar SVG/PNG/imagem (vídeo não suportado)"/>
