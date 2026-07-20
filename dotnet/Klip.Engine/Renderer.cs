@@ -305,7 +305,17 @@ public sealed class Renderer
 
         // gradient vs solid fill
         SKShader? shader = null;
-        if (layer.FillArgb2 is uint f2 && colorOverride is null)
+        bool gradFill = false;   // pintámos com GradientSpec? então o alpha da cor de fill não manda no draw
+
+        // GRADIENTE MULTI-STOP (novo) — tem prioridade sobre o par legado, mas NUNCA em partículas
+        // e trails: aí o colorOverride é a cor da própria partícula e um gradiente arruinava o efeito.
+        if (layer.FillGradient is GradientSpec gspec && colorOverride is null)
+        {
+            shader = GradientShader.Build(gspec, bounds, t, (byte)Math.Clamp(op * 255.0, 0, 255));
+            if (shader is not null) { paint.Shader = shader; gradFill = true; }
+        }
+
+        if (!gradFill && layer.FillArgb2 is uint f2 && colorOverride is null)
         {
             var c1 = ((SKColor)fill).WithAlpha(a);
             var c2 = ((SKColor)(layer.FillColor2?.Eval(t) ?? f2)).WithAlpha(a);   // 2ª cor animável (best-effort)
@@ -331,12 +341,14 @@ public sealed class Renderer
             }
             paint.Shader = shader;
         }
-        else
+        else if (!gradFill)
         {
             paint.Color = ((SKColor)fill).WithAlpha(a);
         }
 
-        if (a > 0) canvas.DrawPath(shape, paint);
+        // Com gradiente as paragens trazem o seu próprio alpha: uma camada cuja FillArgb calhe ser
+        // transparente continua a ter de desenhar, senão o gradiente nunca aparecia.
+        if (a > 0 || gradFill) canvas.DrawPath(shape, paint);
         shader?.Dispose();
 
         // stroke (contorno) — line-work de motion graphics
