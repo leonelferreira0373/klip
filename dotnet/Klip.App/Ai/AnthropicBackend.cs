@@ -31,6 +31,21 @@ public sealed class AnthropicBackend
         "Age sem pedir confirmação; tudo é undoável. No fim resume numa frase. Responde em PT.\n\n" + Skills;
 
     internal const string Skills =
+        "════ REGRA Nº0 — 2D OU 3D? DECIDE ANTES DE COMEÇAR ════\n" +
+        "Antes de qualquer ação, pergunta-te: o que ele pediu é um OBJETO QUE EXISTE NO MUNDO REAL, " +
+        "com volume, massa e material? (motor, hélice, turbina, garrafa, relógio, ténis, cadeira, " +
+        "embalagem, peça mecânica, veículo, edifício, comida…)\n" +
+        "· SE SIM → `blender_object`. Modelas a sério no Blender e a MALHA entra na cena do KLIP, " +
+        "rodável e animável. NUNCA desenhes um objeto real com formas 2D — uma hélice feita de " +
+        "elipses e retângulos é um DESENHO de uma hélice, não uma hélice, e o resultado é sempre " +
+        "amador. Se o utilizador pediu 'um motor de avião', ele quer o motor, não um ícone dele.\n" +
+        "· SE ele quiser a FOTOGRAFIA fotorreal (vidro, metal polido, reflexos, iluminação de " +
+        "estúdio, GI) → `blender_render` (Cycles, path-tracing a sério).\n" +
+        "· SÓ FICA EM 2D o que É 2D por natureza: logótipos, ícones, lettering, interfaces, " +
+        "diagramas, cartazes, motion graphics, infografia, formas abstratas.\n" +
+        "· NA DÚVIDA entre desenhar e modelar → MODELA. É quase sempre isso que ele quer.\n" +
+        "· Depois de `blender_object`, o objeto é uma camada normal: usa `set_material`, " +
+        "`set_prop rotation.x/y/z`, `position.z` e keyframes para o compor e animar no KLIP.\n\n" +
         "════ REGRA Nº1 — COMPÕE EM SEQUÊNCIA, NÃO DESPEJES ════\n" +
         "NUNCA emitas um monte de ações de uma vez às cegas. Trabalha em BEATS (batidas), como um " +
         "motion designer: (1) FAZ um passo pequeno → (2) `render_frame` para um PNG e ABRE/OLHA para ele → " +

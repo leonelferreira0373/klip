@@ -231,16 +231,103 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Largas QUALQUER ficheiro e ele vai sozinho para o sítio certo: imagem/SVG/Rive/Lottie para a
+    /// tela, malha 3D para a cena, áudio para a faixa do DAW, vídeo para áudio + fotograma.
+    /// </summary>
     private void ImportFile(string path)
     {
         var ext = Path.GetExtension(path).ToLowerInvariant();
-        if (ext is ".mp4" or ".mov" or ".avi" or ".webm" or ".mkv")
-        { AppendChat("✗", "vídeo não é suportado — só SVG e imagens."); return; }
-        if (ext is ".svg") { ImportSvg(path); return; }
-        if (ext is ".riv") { try { ApiInsertRive(path, null); } catch (Exception e) { AppendChat("✗", e.Message); } return; }
-        if (ext is ".json") { try { ApiInsertLottie(path); } catch (Exception e) { AppendChat("✗", e.Message); } return; }
-        if (ext is ".png" or ".jpg" or ".jpeg" or ".webp" or ".bmp" or ".gif") { ImportImage(path); return; }
-        AppendChat("✗", $"formato não suportado: {ext}");
+        try
+        {
+            if (ext is ".svg") { ImportSvg(path); return; }
+            if (ext is ".riv") { ApiInsertRive(path, null); return; }
+            if (ext is ".json") { ApiInsertLottie(path); return; }
+            if (ext is ".png" or ".jpg" or ".jpeg" or ".webp" or ".bmp" or ".gif") { ImportImage(path); return; }
+            if (ext is ".glb" or ".gltf" or ".obj") { ImportMesh(path); return; }
+            if (ext is ".mp3" or ".wav" or ".flac" or ".m4a" or ".aac" or ".ogg" or ".wma")
+            { ImportAudio(path); return; }
+            if (ext is ".mp4" or ".mov" or ".avi" or ".webm" or ".mkv" or ".m4v")
+            { ImportVideo(path); return; }
+            AppendChat("✗", $"formato não suportado: {ext}");
+        }
+        catch (Exception e) { AppendChat("✗", e.Message); }
+    }
+
+    /// <summary>Malha 3D → objeto real na cena, com o material que vier no ficheiro.</summary>
+    private void ImportMesh(string path)
+    {
+        uint argb = 0xFFBDBDC6; double rough = 0.4, metal = 0.0;
+        if (Path.GetExtension(path).ToLowerInvariant() is ".glb" or ".gltf")
+        {
+            try
+            {
+                var g = Klip.Engine.ThreeD.GltfMesh.Load(path);
+                argb = g.pbr.BaseArgb; metal = g.pbr.Metal; rough = Math.Clamp(g.pbr.Rough, 0.04, 1.0);
+            }
+            catch { }
+        }
+        var id = AddMeshLayer(path, "", Path.GetFileNameWithoutExtension(path), argb, rough, metal);
+        AppendChat("·", $"objeto 3D na cena: {id}");
+        ShowTab("3d");
+    }
+
+    /// <summary>Áudio → faixa do DAW, e a timeline estica-se para caber a música.</summary>
+    private void ImportAudio(string path)
+    {
+        double dur = Klip.Engine.Audio.AudioMixer.DurationOf(path);
+        _audio.Add(new Klip.Model.AudioTrack(
+            Path.GetFileNameWithoutExtension(path),
+            new[] { new Klip.Model.AudioClip(path, Start: 0, Name: Path.GetFileName(path)) }));
+        if (dur > _motionDur) _motionDur = Math.Min(dur, 600);
+        DawChanged();
+        Refresh();
+        ShowTab("audio");
+        AppendChat("·", $"áudio na faixa: {Path.GetFileName(path)} ({dur:0.0}s)");
+    }
+
+    /// <summary>
+    /// Vídeo: o KLIP é vetor+motion, não editor de footage. Em vez de recusar (que não ajuda
+    /// ninguém), extraímos o que É utilizável — a banda sonora para o DAW e um fotograma para a
+    /// tela — e dizemos claramente o que ficou de fora.
+    /// </summary>
+    private void ImportVideo(string path)
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), "klip_video");
+        Directory.CreateDirectory(tmp);
+        var stem = Path.GetFileNameWithoutExtension(path);
+        var wav = Path.Combine(tmp, stem + ".wav");
+        var png = Path.Combine(tmp, stem + ".png");
+        AppendChat("·", "vídeo: a extrair banda sonora e fotograma…");
+
+        Task.Run(() =>
+        {
+            // ArgumentList em vez de uma string única: zero problemas com espaços nos caminhos
+            static void Ff(params string[] args)
+            {
+                try
+                {
+                    var psi = new System.Diagnostics.ProcessStartInfo("ffmpeg")
+                    { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
+                    foreach (var a in args) psi.ArgumentList.Add(a);
+                    using var p = System.Diagnostics.Process.Start(psi);
+                    p?.WaitForExit(120000);
+                }
+                catch { }
+            }
+            Ff("-y", "-i", path, "-vn", "-ac", "2", "-ar", "48000", wav);
+            Ff("-y", "-i", path, "-vframes", "1", png);
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                bool got = false;
+                if (File.Exists(png) && new FileInfo(png).Length > 0) { ImportImage(png); got = true; }
+                if (File.Exists(wav) && new FileInfo(wav).Length > 0) { ImportAudio(wav); got = true; }
+                AppendChat(got ? "·" : "✗", got
+                    ? "vídeo: som na faixa de áudio e fotograma na tela. A IMAGEM EM MOVIMENTO não entra — o KLIP é vetor+motion, não edita footage."
+                    : "não consegui extrair nada do vídeo (ffmpeg falhou).");
+            });
+        });
     }
 
     private void ImportImage(string path)
