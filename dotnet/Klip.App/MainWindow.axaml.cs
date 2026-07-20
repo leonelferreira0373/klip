@@ -221,8 +221,27 @@ public partial class MainWindow : Window
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = true,
-            FileTypeFilter = new[] { new FilePickerFileType("SVG e imagens")
-                { Patterns = new[] { "*.svg", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp" } } },
+            // o largar-e-soltar já aceitava tudo isto; o seletor ficara para trás a oferecer só SVG e imagens
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Tudo o que o KLIP aceita")
+                {
+                    Patterns = new[]
+                    {
+                        "*.svg", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp", "*.gif",
+                        "*.glb", "*.gltf", "*.obj", "*.blend",
+                        "*.mp3", "*.wav", "*.flac", "*.m4a", "*.aac", "*.ogg", "*.wma",
+                        "*.mp4", "*.mov", "*.avi", "*.webm", "*.mkv", "*.m4v",
+                        "*.riv", "*.json", "*.ttf", "*.otf",
+                    },
+                },
+                new FilePickerFileType("Imagens e vetores") { Patterns = new[] { "*.svg", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp", "*.gif" } },
+                new FilePickerFileType("3D") { Patterns = new[] { "*.glb", "*.gltf", "*.obj", "*.blend" } },
+                new FilePickerFileType("Áudio") { Patterns = new[] { "*.mp3", "*.wav", "*.flac", "*.m4a", "*.aac", "*.ogg", "*.wma" } },
+                new FilePickerFileType("Vídeo") { Patterns = new[] { "*.mp4", "*.mov", "*.avi", "*.webm", "*.mkv", "*.m4v" } },
+                new FilePickerFileType("Animação") { Patterns = new[] { "*.riv", "*.json" } },
+                new FilePickerFileType("Tipos de letra") { Patterns = new[] { "*.ttf", "*.otf" } },
+            },
         });
         foreach (var f in files)
         {
@@ -249,9 +268,61 @@ public partial class MainWindow : Window
             { ImportAudio(path); return; }
             if (ext is ".mp4" or ".mov" or ".avi" or ".webm" or ".mkv" or ".m4v")
             { ImportVideo(path); return; }
-            AppendChat("✗", $"formato não suportado: {ext}");
+            if (ext is ".blend") { ImportBlend(path); return; }
+            if (ext is ".ttf" or ".otf") { ImportFont(path); return; }
+            AppendChat("✗", $"formato não suportado: {ext}  —  aceito imagens, SVG, glb/gltf/obj/blend, "
+                          + "áudio, vídeo, .riv, Lottie (.json) e tipos de letra");
         }
         catch (Exception e) { AppendChat("✗", e.Message); }
+    }
+
+    /// <summary>
+    /// Largar um .blend traz o objeto para a cena E fica com o ficheiro como FONTE — ou seja, dá
+    /// para o editar por palavras a seguir (blender_edit), como se tivesse sido modelado aqui.
+    /// O Blender converte para glb num processo à parte; sem Blender instalado, dizemos porquê.
+    /// </summary>
+    private void ImportBlend(string path)
+    {
+        if (!Klip.Engine.Blender.BlenderBridge.IsAvailable)
+            throw new InvalidOperationException(
+                "para abrir um .blend é preciso o Blender instalado (ou a variável KLIP_BLENDER a apontar ao blender.exe)");
+
+        var dir = Path.Combine(Path.GetTempPath(), "klip_meshes");
+        Directory.CreateDirectory(dir);
+        var glb = Path.Combine(dir, "klip_" + Guid.NewGuid().ToString("N")[..10] + ".glb");
+        AppendChat("·", $"a converter {Path.GetFileName(path)}…");
+
+        Klip.Engine.Blender.BlenderBridge.RunScriptOnBlend(path, @"
+import bpy, sys
+_out = sys.argv[sys.argv.index('--') + 1]
+bpy.ops.object.select_all(action='SELECT')
+bpy.ops.export_scene.gltf(filepath=_out, export_format='GLB', export_apply=True,
+                          export_materials='EXPORT', export_normals=True, export_yup=True)
+print('KLIP GLB ->', _out)
+", new[] { glb }, TimeSpan.FromMinutes(10));
+
+        if (!File.Exists(glb) || new FileInfo(glb).Length == 0)
+            throw new InvalidOperationException("o .blend não tinha nada exportável (cena vazia?)");
+
+        uint argb = 0xFFBDBDC6; double rough = 0.4, metal = 0.0;
+        try
+        {
+            var g = Klip.Engine.ThreeD.GltfMesh.Load(glb);
+            argb = g.pbr.BaseArgb; metal = g.pbr.Metal; rough = Math.Clamp(g.pbr.Rough, 0.04, 1.0);
+        }
+        catch { }
+
+        // o .blend ORIGINAL fica como fonte → blender_edit passa a funcionar neste objeto
+        var id = AddMeshLayer(glb, path, Path.GetFileNameWithoutExtension(path), argb, rough, metal);
+        AppendChat("·", $"objeto 3D na cena: {id} (editável por palavras)");
+        ShowTab("3d");
+    }
+
+    /// <summary>Largar um tipo de letra regista-o para o texto o poder usar já.</summary>
+    private void ImportFont(string path)
+    {
+        var fam = Klip.Engine.FontRegistry.Shared.RegisterFile(path);
+        AppendChat("·", $"tipo de letra pronto: {fam}  (usa-o em insert_text/set_font)");
     }
 
     /// <summary>Malha 3D → objeto real na cena, com o material que vier no ficheiro.</summary>
