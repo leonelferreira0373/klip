@@ -51,6 +51,11 @@ try:
     _bpy.ops.object.select_all(action='SELECT')
 except Exception:
     pass
+" + BakeTextures.Script() + @"
+try:
+    _bpy.ops.object.select_all(action='SELECT')
+except Exception:
+    pass
 # export_yup=True e NAO False: o Blender e Z-up, o motor do KLIP (e o proprio glTF) sao Y-up.
 # Com False, tudo o que se modelava chegava DEITADO de costas para a camara.
 _bpy.ops.export_scene.gltf(filepath=_out, export_format='GLB',
@@ -128,6 +133,11 @@ try:
     _bpy.ops.wm.save_as_mainfile(filepath=_blend)
 except Exception as _e:
     print('KLIP: .blend nao regravou:', _e)
+try:
+    _bpy.ops.object.select_all(action='SELECT')
+except Exception:
+    pass
+" + BakeTextures.Script() + @"
 try:
     _bpy.ops.object.select_all(action='SELECT')
 except Exception:
