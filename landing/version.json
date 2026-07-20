@@ -1,12 +1,18 @@
 {
   "latest": {
-    "version": "1.1.0",
+    "version": "1.2.0",
     "date": "2026-07-20",
-    "md5": "5377f31a32a85704f518c868473c27d3",
-    "notes": "Materiais completos na importacao 3D: relevo, metalico-rugosidade, emissao e translucidez deixam de se perder. Texturas assadas na exportacao, para os materiais procedurais do Blender chegarem intactos. Editar objectos 3D por palavras sem os refazer. Topologia medida com inspect_mesh. Gradientes multi-stop e livros PANTONE ate ao CMYK. Video 4K com som. Imagens no chat separadas da tela.",
+    "md5": "6f0cd9181ef9b9160203307f287f7348",
+    "notes": "Edicao de malha A MAO dentro do KLIP: toca na peca para escolher vertices, arestas e faces, e aplica bisel, extrudir, inset, subdividir, suavizar, apagar ou unir. O Blender e o motor de edicao e a janela dele nunca aparece. Cada operacao demora cerca de 7 segundos. A IA tambem pode editar malha pelos verbos mesh_op e mesh_ops. Estudio com chao claro e luz larga: o metal deixa de parecer plastico cinzento.",
     "url": "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe"
   },
   "history": [
+    {
+      "version": "1.2.0",
+      "date": "2026-07-20",
+      "md5": "6f0cd9181ef9b9160203307f287f7348",
+      "notes": "Edicao de malha A MAO dentro do KLIP: toca na peca para escolher vertices, arestas e faces, e aplica bisel, extrudir, inset, subdividir, suavizar, apagar ou unir. O Blender e o motor de edicao e a janela dele nunca aparece. Cada operacao demora cerca de 7 segundos. A IA tambem pode editar malha pelos verbos mesh_op e mesh_ops. Estudio com chao claro e luz larga: o metal deixa de parecer plastico cinzento."
+    },
     {
       "version": "1.1.0",
       "date": "2026-07-20",
