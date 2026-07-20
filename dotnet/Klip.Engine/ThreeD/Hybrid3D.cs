@@ -214,6 +214,7 @@ public static class Hybrid3D
 
             var pc = color; float pr = (float)spec.Rough, pm = (float)spec.Metal;
             uint pTex = frontTex, pBack = backTex; bool pUse = useTex, pTexAll = false;
+            uint pNrm = 0, pMr = 0, pEmi = 0; Vector3? pEmis = null; float pAlpha = 1f; bool pBlend = false;
             if (perPart)
             {
                 uint b = part.Material.BaseArgb;
@@ -227,8 +228,25 @@ public static class Hybrid3D
                 }
                 else pUse = false;
             }
+
+            // OS MAPAS APLICAM-SE SEMPRE QUE A MALHA VEM DE FICHEIRO, e não só quando há várias
+            // partes ou textura de cor. Foi a armadilha: um objeto com UM material e um mapa de
+            // relevo caía fora daquela condição — o mapa era lido do .glb e depois ignorado, e a
+            // peça chegava lisa. A cor continua a poder vir da camada (os controlos do painel
+            // mandam), mas o RELEVO e o resto vêm sempre do ficheiro.
+            if (useMesh)
+            {
+                if (part.NormalTex is { Length: > 0 } nt) pNrm = LoadTexture(gpu.Gl, nt);
+                if (part.MrTex is { Length: > 0 } mt) pMr = LoadTexture(gpu.Gl, mt);
+                if (part.EmisTex is { Length: > 0 } et) pEmi = LoadTexture(gpu.Gl, et);
+                if (part.EmisR > 0 || part.EmisG > 0 || part.EmisB > 0)
+                    pEmis = new Vector3(part.EmisR, part.EmisG, part.EmisB);
+                pAlpha = part.Alpha; pBlend = part.Blend && part.Alpha < 0.999f;
+            }
             _pass.Render(mvp, model, light, pc, eye, pr, pm, pTex, pBack, pUse, edge,
-                         clear: i == 0, texAll: pTexAll);
+                         clear: i == 0, texAll: pTexAll,
+                         nrmTex: pNrm, mrTex: pMr, emiTex: pEmi,
+                         emissive: pEmis, alpha: pAlpha, blend: pBlend);
         }
 
         // readback direto (glReadPixels) — sem interop GRBackendTexture, robusto em single-file

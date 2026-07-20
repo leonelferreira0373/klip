@@ -18,6 +18,7 @@ public sealed unsafe class MeshPass : IDisposable
     private readonly float _envMaxLod;
     private readonly int _locMVP, _locModel, _locLight, _locColor, _locCam, _locRough, _locMetal, _locEnv, _locEnvLod;
     private readonly int _locFront, _locBack, _locUseTex, _locEdge;
+    private readonly int _locNrm, _locMR, _locEmi, _locUseNrm, _locUseMR, _locUseEmi, _locEmisF, _locAlpha;
 
     public uint ColorTexture => _colorTex;
     public uint Fbo => _fbo;
@@ -41,6 +42,14 @@ public sealed unsafe class MeshPass : IDisposable
         _locBack = gl.GetUniformLocation(_prog, "uBack");
         _locUseTex = gl.GetUniformLocation(_prog, "uUseTex");
         _locEdge = gl.GetUniformLocation(_prog, "uEdge");
+        _locNrm = gl.GetUniformLocation(_prog, "uNrmTex");
+        _locMR = gl.GetUniformLocation(_prog, "uMrTex");
+        _locEmi = gl.GetUniformLocation(_prog, "uEmiTex");
+        _locUseNrm = gl.GetUniformLocation(_prog, "uUseNrm");
+        _locUseMR = gl.GetUniformLocation(_prog, "uUseMr");
+        _locUseEmi = gl.GetUniformLocation(_prog, "uUseEmi");
+        _locEmisF = gl.GetUniformLocation(_prog, "uEmissive");
+        _locAlpha = gl.GetUniformLocation(_prog, "uAlpha");
         (_env, _envMaxLod) = IblEnv.Create(gl);   // estúdio procedural p/ IBL
 
         _vao = gl.GenVertexArray(); gl.BindVertexArray(_vao);
@@ -88,7 +97,9 @@ public sealed unsafe class MeshPass : IDisposable
     public void Render(float[] mvp, float[] model, Vector3 lightDir, Vector3 color, Vector3 camPos,
                        float rough = 0.25f, float metal = 0.85f,
                        uint frontTex = 0, uint backTex = 0, bool useTex = false, Vector3? edge = null,
-                       bool clear = true, bool texAll = false)
+                       bool clear = true, bool texAll = false,
+                       uint nrmTex = 0, uint mrTex = 0, uint emiTex = 0,
+                       Vector3? emissive = null, float alpha = 1f, bool blend = false)
     {
         _gl.BindFramebuffer(FramebufferTarget.Framebuffer, _fbo);
         _gl.Viewport(0, 0, (uint)_w, (uint)_h);
@@ -99,6 +110,21 @@ public sealed unsafe class MeshPass : IDisposable
             _gl.ClearColor(0f, 0f, 0f, 0f);
             _gl.Clear((uint)(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit));
         }
+        // Material translúcido pede mistura. Sem ordenar triângulos por profundidade o resultado não
+        // é exacto, mas um vidro que se vê atravessado é muito mais próximo da verdade do que um
+        // vidro opaco — que era o que se via até aqui.
+        if (blend)
+        {
+            _gl.Enable(EnableCap.Blend);
+            _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            _gl.DepthMask(false);
+            // CULLING LIGADO só aqui: sem ele, as faces de trás de uma esfera também se misturam e
+            // a soma satura até ao branco — foi exactamente o que aconteceu no primeiro teste.
+            // Com o depth a não escrever, cada superfície visível contribui UMA vez.
+            _gl.Enable(EnableCap.CullFace);
+            _gl.CullFace(TriangleFace.Back);
+        }
+        else { _gl.Disable(EnableCap.Blend); _gl.DepthMask(true); }
 
         _gl.UseProgram(_prog);
         _gl.BindVertexArray(_vao);
@@ -126,8 +152,28 @@ public sealed unsafe class MeshPass : IDisposable
             _gl.BindTexture(TextureTarget.Texture2D, backTex != 0 ? backTex : frontTex);
             _gl.Uniform1(_locBack, 2);
         }
+        // mapas PBR extra — as unidades 3/4/5 ficam reservadas para eles
+        var em = emissive ?? Vector3.Zero;
+        _gl.Uniform3(_locEmisF, em.X, em.Y, em.Z);
+        _gl.Uniform1(_locAlpha, alpha);
+        _gl.Uniform1(_locUseNrm, nrmTex != 0 ? 1 : 0);
+        _gl.Uniform1(_locUseMR, mrTex != 0 ? 1 : 0);
+        _gl.Uniform1(_locUseEmi, emiTex != 0 ? 1 : 0);
+        _gl.ActiveTexture(TextureUnit.Texture3);
+        _gl.BindTexture(TextureTarget.Texture2D, nrmTex);
+        _gl.Uniform1(_locNrm, 3);
+        _gl.ActiveTexture(TextureUnit.Texture4);
+        _gl.BindTexture(TextureTarget.Texture2D, mrTex);
+        _gl.Uniform1(_locMR, 4);
+        _gl.ActiveTexture(TextureUnit.Texture5);
+        _gl.BindTexture(TextureTarget.Texture2D, emiTex != 0 ? emiTex : frontTex);
+        _gl.Uniform1(_locEmi, 5);
+
         _gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)_vertCount);
 
+        _gl.Disable(EnableCap.Blend);
+        _gl.Disable(EnableCap.CullFace);
+        _gl.DepthMask(true);
         _gl.Disable(EnableCap.DepthTest);
         _gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         _gl.Flush();
@@ -156,7 +202,21 @@ uniform vec3 uLightDir; uniform vec3 uColor; uniform vec3 uCamPos;
 uniform float uRough; uniform float uMetal;
 uniform sampler2D uEnv; uniform float uEnvMaxLod;
 uniform sampler2D uFront; uniform sampler2D uBack; uniform int uUseTex; uniform vec3 uEdge;
+uniform sampler2D uNrmTex; uniform sampler2D uMrTex; uniform sampler2D uEmiTex;
+uniform int uUseNrm; uniform int uUseMr; uniform int uUseEmi; uniform vec3 uEmissive; uniform float uAlpha;
 const float PI = 3.14159265359;
+
+// TBN a partir das derivadas de ecrã: evita exigir o atributo TANGENT, que a maior parte dos
+// exportadores só escreve a pedido — sem isto, um mapa de normais válido ficava por usar.
+mat3 tbn(vec3 N, vec3 p, vec2 uv){
+  vec3 dp1 = dFdx(p), dp2 = dFdy(p);
+  vec2 du1 = dFdx(uv), du2 = dFdy(uv);
+  vec3 dp2p = cross(dp2, N), dp1p = cross(N, dp1);
+  vec3 T = dp2p * du1.x + dp1p * du2.x;
+  vec3 B = dp2p * du1.y + dp1p * du2.y;
+  float inv = inversesqrt(max(dot(T,T), dot(B,B)) + 1e-12);
+  return mat3(T*inv, B*inv, N);
+}
 
 float D_GGX(float NoH, float a){ float a2=a*a; float d=(NoH*NoH)*(a2-1.0)+1.0; return a2/(PI*d*d); }
 float G1(float NoX, float k){ return NoX/(NoX*(1.0-k)+k); }
@@ -210,6 +270,19 @@ void main(){
   vec3 albedo = pow(max(srgb,0.0), vec3(2.2));      // sRGB -> linear
   float rough = clamp(uRough,0.04,1.0);
   float metal = clamp(uMetal,0.0,1.0);
+
+  // mapa metálico-rugosidade: o glTF empacota os dois no MESMO ficheiro — G rugosidade, B metálico
+  if (uUseMr == 1) {
+    vec3 mr = texture(uMrTex, vUV).rgb;
+    rough = clamp(mr.g, 0.04, 1.0);
+    metal = clamp(mr.b, 0.0, 1.0);
+  }
+  // relevo: o mapa é tangent-space e vem em 0..1, daí o *2-1
+  if (uUseNrm == 1) {
+    vec3 nt = texture(uNrmTex, vUV).xyz * 2.0 - 1.0;
+    N = normalize(tbn(N, vW, vUV) * nt);
+    if (dot(N,V) < 0.0) N = -N;
+  }
   vec3 F0 = mix(vec3(0.04), albedo, metal);
   float NoV = max(dot(N,V),1e-4);
 
@@ -229,9 +302,14 @@ void main(){
   vec3 iblDiff = irradiance * albedo * (1.0 - metal);
   col += iblSpec + iblDiff;
 
+  // EMISSÃO: entra DEPOIS da iluminação e antes do tonemap — não recebe luz, ela própria É luz.
+  vec3 emis = uEmissive;
+  if (uUseEmi == 1) emis *= pow(max(texture(uEmiTex, vUV).rgb, 0.0), vec3(2.2));
+  col += emis;
+
   col = aces(col);
   col = pow(col, vec3(1.0/2.2));                    // linear -> sRGB
-  o = vec4(col, 1.0);
+  o = vec4(col, clamp(uAlpha, 0.0, 1.0));
 }";
 
     public void Dispose()

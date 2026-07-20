@@ -22,7 +22,16 @@ public static class GltfMesh
 
     /// <summary>Uma PARTE da malha: tudo o que partilha o mesmo material. Um ténis tem sola,
     /// tecido e ilhós — sem isto chegava tudo com uma cor só.</summary>
-    public sealed record Part(float[] Data, int Count, Pbr Material, string? BaseTex);
+    /// <param name="NormalTex">mapa de normais (relevo). Sem ele, uma superfície trabalhada chega lisa.</param>
+    /// <param name="MrTex">mapa metálico-rugosidade do glTF: G = rugosidade, B = metálico, no MESMO ficheiro.</param>
+    /// <param name="EmisTex">mapa de emissão.</param>
+    /// <param name="EmisR">cor emissiva já multiplicada pela força (KHR_materials_emissive_strength).</param>
+    /// <param name="Alpha">alfa do baseColorFactor; &lt; 1 = material translúcido.</param>
+    /// <param name="Blend">alphaMode BLEND — o material pede mistura, não é só uma cor com alfa.</param>
+    public sealed record Part(float[] Data, int Count, Pbr Material, string? BaseTex,
+                              string? NormalTex = null, string? MrTex = null, string? EmisTex = null,
+                              float EmisR = 0, float EmisG = 0, float EmisB = 0,
+                              float Alpha = 1f, bool Blend = false);
 
     private static readonly Dictionary<string, (float[] data, int count, Pbr pbr)> _cache =
         new(StringComparer.OrdinalIgnoreCase);
@@ -135,25 +144,66 @@ public static class GltfMesh
             for (int i = 0; i < arr.Length; i += 8)
             { arr[i] = (arr[i] - cx) * k; arr[i + 1] = (arr[i + 1] - cy) * k; arr[i + 2] = (arr[i + 2] - cz) * k; }
             var pbr = matIx >= 0 && matIx < materials.Count ? ReadPbr(materials[matIx]) : new Pbr(0xFFBDBDC6, 0f, 0.5f);
-            string? tex = matIx >= 0 && matIx < materials.Count
-                ? ExtractBaseTexture(root, materials[matIx], views, bin, path, matIx) : null;
-            parts.Add(new Part(arr, arr.Length / 8, pbr, tex));
+            if (matIx < 0 || matIx >= materials.Count) { parts.Add(new Part(arr, arr.Length / 8, pbr, null)); continue; }
+
+            var mat = materials[matIx];
+            var pmr = mat.TryGetProperty("pbrMetallicRoughness", out var pv) ? pv : default;
+
+            string? baseTex = ExtractTexture(root, views, bin, path, matIx, "base", TexIndex(pmr, "baseColorTexture"));
+            string? normTex = ExtractTexture(root, views, bin, path, matIx, "norm", TexIndex(mat, "normalTexture"));
+            string? mrTex = ExtractTexture(root, views, bin, path, matIx, "mr", TexIndex(pmr, "metallicRoughnessTexture"));
+            string? emiTex = ExtractTexture(root, views, bin, path, matIx, "emi", TexIndex(mat, "emissiveTexture"));
+
+            // A força da emissão vive numa EXTENSÃO à parte; sem a ler, um néon exportado com
+            // strength 5 chegava com a intensidade de uma tinta baça.
+            float ef = 1f;
+            if (mat.TryGetProperty("extensions", out var exts)
+                && exts.TryGetProperty("KHR_materials_emissive_strength", out var es)
+                && es.TryGetProperty("emissiveStrength", out var esv))
+                ef = (float)esv.GetDouble();
+
+            float er = 0, eg = 0, eb = 0;
+            if (mat.TryGetProperty("emissiveFactor", out var emf) && emf.ValueKind == JsonValueKind.Array && emf.GetArrayLength() >= 3)
+            {
+                var e = emf.EnumerateArray().ToArray();
+                er = (float)e[0].GetDouble() * ef; eg = (float)e[1].GetDouble() * ef; eb = (float)e[2].GetDouble() * ef;
+            }
+
+            float alpha = 1f;
+            if (pmr.ValueKind == JsonValueKind.Object
+                && pmr.TryGetProperty("baseColorFactor", out var bcf)
+                && bcf.ValueKind == JsonValueKind.Array && bcf.GetArrayLength() >= 4)
+                alpha = (float)bcf.EnumerateArray().ElementAt(3).GetDouble();
+
+            bool blend = mat.TryGetProperty("alphaMode", out var am)
+                         && (am.GetString() ?? "OPAQUE") is "BLEND" or "MASK";
+
+            parts.Add(new Part(arr, arr.Length / 8, pbr, baseTex, normTex, mrTex, emiTex, er, eg, eb, alpha, blend));
         }
         _partsCache[ck] = parts;
         return parts;
     }
 
-    /// <summary>Escreve a textura de cor base (embutida no .glb) num ficheiro que o KLIP possa carregar.</summary>
-    private static string? ExtractBaseTexture(JsonElement root, JsonElement mat,
-        List<JsonElement> views, byte[] bin, string glbPath, int matIx)
+    /// <summary>Índice da textura dentro de um slot ("baseColorTexture", "normalTexture"…), ou -1.</summary>
+    private static int TexIndex(JsonElement owner, string slot)
+        => owner.ValueKind == JsonValueKind.Object
+           && owner.TryGetProperty(slot, out var s)
+           && s.TryGetProperty("index", out var i)
+           && i.TryGetInt32(out int ix) ? ix : -1;
+
+    /// <summary>
+    /// Escreve uma textura embutida no .glb num ficheiro que o KLIP possa carregar.
+    /// O sufixo distingue os mapas do mesmo material — sem ele, o mapa de normais sobrescrevia
+    /// a cor base em disco e o objeto chegava pintado com o próprio relevo.
+    /// </summary>
+    private static string? ExtractTexture(JsonElement root, List<JsonElement> views, byte[] bin,
+                                          string glbPath, int matIx, string sufixo, int tix)
     {
         try
         {
-            if (!mat.TryGetProperty("pbrMetallicRoughness", out var p)) return null;
-            if (!p.TryGetProperty("baseColorTexture", out var bt) || !bt.TryGetProperty("index", out var ti)) return null;
+            if (tix < 0) return null;
             var textures = Arr(root, "textures");
-            int tix = ti.GetInt32();
-            if (tix < 0 || tix >= textures.Count) return null;
+            if (tix >= textures.Count) return null;
             if (!textures[tix].TryGetProperty("source", out var srcE) || !srcE.TryGetInt32(out int srcIx)) return null;
             var images = Arr(root, "images");
             if (srcIx < 0 || srcIx >= images.Count) return null;
@@ -177,7 +227,7 @@ public static class GltfMesh
             var dir = Path.Combine(Path.GetTempPath(), "klip_gltf_tex");
             Directory.CreateDirectory(dir);
             var outp = Path.Combine(dir,
-                Path.GetFileNameWithoutExtension(glbPath) + "_m" + matIx + ext);
+                Path.GetFileNameWithoutExtension(glbPath) + "_m" + matIx + "_" + sufixo + ext);
             if (!File.Exists(outp) || new FileInfo(outp).Length != len)
                 File.WriteAllBytes(outp, bin[off..(off + len)]);
             return outp;
