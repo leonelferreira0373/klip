@@ -20,8 +20,170 @@ public static class GltfMesh
 {
     public readonly record struct Pbr(uint BaseArgb, float Metal, float Rough);
 
+    /// <summary>Uma PARTE da malha: tudo o que partilha o mesmo material. Um ténis tem sola,
+    /// tecido e ilhós — sem isto chegava tudo com uma cor só.</summary>
+    public sealed record Part(float[] Data, int Count, Pbr Material, string? BaseTex);
+
     private static readonly Dictionary<string, (float[] data, int count, Pbr pbr)> _cache =
         new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, IReadOnlyList<Part>> _partsCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Carrega a malha SEPARADA POR MATERIAL, com a textura de cor base extraída para disco.
+    /// A normalização é feita com a caixa COMUM a todas as partes — normalizar cada uma à sua
+    /// escala faria a sola e o tecido do mesmo sapato saírem com tamanhos diferentes.
+    /// </summary>
+    public static IReadOnlyList<Part> LoadParts(string path)
+    {
+        path = Path.GetFullPath(path);
+        var ck = "parts|" + path + "|" + (File.Exists(path) ? File.GetLastWriteTimeUtc(path).Ticks : 0);
+        if (_partsCache.TryGetValue(ck, out var got)) return got;
+
+        var bytes = File.ReadAllBytes(path);
+        var (json, bin) = SplitGlb(bytes);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var accessors = Arr(root, "accessors");
+        var views = Arr(root, "bufferViews");
+        var meshes = Arr(root, "meshes");
+        var nodes = Arr(root, "nodes");
+        var materials = Arr(root, "materials");
+
+        var buckets = new Dictionary<int, List<float>>();          // material → vértices
+
+        void Walk(int nodeIx, Matrix4x4 parent)
+        {
+            if (nodeIx < 0 || nodeIx >= nodes.Count) return;
+            var n = nodes[nodeIx];
+            var world = NodeMatrix(n) * parent;
+
+            if (n.TryGetProperty("mesh", out var mi) && mi.TryGetInt32(out int meshIx)
+                && meshIx >= 0 && meshIx < meshes.Count)
+            {
+                foreach (var prim in EnumArr(meshes[meshIx], "primitives"))
+                {
+                    if (prim.TryGetProperty("mode", out var md) && md.TryGetInt32(out int mode) && mode != 4) continue;
+                    if (!prim.TryGetProperty("attributes", out var at)) continue;
+                    var pos = ReadVec3(at, "POSITION", accessors, views, bin);
+                    if (pos.Count == 0) continue;
+                    var nor = ReadVec3(at, "NORMAL", accessors, views, bin);
+                    var uv = ReadVec2(at, "TEXCOORD_0", accessors, views, bin);
+                    var idx = prim.TryGetProperty("indices", out var ii) && ii.TryGetInt32(out int ia)
+                        ? ReadIndices(ia, accessors, views, bin) : SeqIndices(pos.Count);
+
+                    int matIx = prim.TryGetProperty("material", out var pm) && pm.TryGetInt32(out int mx) ? mx : -1;
+                    if (!buckets.TryGetValue(matIx, out var sink)) buckets[matIx] = sink = new List<float>(4096);
+
+                    var nrmMat = Normal3x3(world);
+                    for (int t = 0; t + 2 < idx.Count; t += 3)
+                    {
+                        Vector3 fa = Vector3.Transform(pos[idx[t]], world);
+                        Vector3 fb = Vector3.Transform(pos[idx[t + 1]], world);
+                        Vector3 fc = Vector3.Transform(pos[idx[t + 2]], world);
+                        var cr = Vector3.Cross(fb - fa, fc - fa);
+                        var fn = cr.LengthSquared() < 1e-14f ? Vector3.UnitZ : Vector3.Normalize(cr);
+                        for (int k = 0; k < 3; k++)
+                        {
+                            int vi = idx[t + k];
+                            var p = Vector3.Transform(pos[vi], world);
+                            var nv = vi < nor.Count ? Vector3.TransformNormal(nor[vi], nrmMat) : fn;
+                            nv = nv.LengthSquared() > 1e-12f ? Vector3.Normalize(nv) : fn;
+                            var t2 = vi < uv.Count ? uv[vi] : Vector2.Zero;
+                            sink.Add(p.X); sink.Add(p.Y); sink.Add(p.Z);
+                            sink.Add(nv.X); sink.Add(nv.Y); sink.Add(nv.Z);
+                            sink.Add(t2.X); sink.Add(1f - t2.Y);
+                        }
+                    }
+                }
+            }
+            foreach (var c in EnumArr(n, "children"))
+                if (c.TryGetInt32(out int ci)) Walk(ci, world);
+        }
+
+        bool walked = false;
+        if (root.TryGetProperty("scenes", out var scenes) && scenes.ValueKind == JsonValueKind.Array)
+        {
+            int sIx = root.TryGetProperty("scene", out var sc) && sc.TryGetInt32(out int si) ? si : 0;
+            var list = Arr(root, "scenes");
+            if (sIx >= 0 && sIx < list.Count)
+                foreach (var r in EnumArr(list[sIx], "nodes"))
+                    if (r.TryGetInt32(out int ri)) { Walk(ri, Matrix4x4.Identity); walked = true; }
+        }
+        if (!walked) for (int i = 0; i < nodes.Count; i++) Walk(i, Matrix4x4.Identity);
+
+        // caixa COMUM a todas as partes
+        float mnX = float.MaxValue, mnY = float.MaxValue, mnZ = float.MaxValue;
+        float mxX = float.MinValue, mxY = float.MinValue, mxZ = float.MinValue;
+        foreach (var b in buckets.Values)
+            for (int i = 0; i < b.Count; i += 8)
+            {
+                if (b[i] < mnX) mnX = b[i];         if (b[i] > mxX) mxX = b[i];
+                if (b[i + 1] < mnY) mnY = b[i + 1]; if (b[i + 1] > mxY) mxY = b[i + 1];
+                if (b[i + 2] < mnZ) mnZ = b[i + 2]; if (b[i + 2] > mxZ) mxZ = b[i + 2];
+            }
+        float cx = (mnX + mxX) * .5f, cy = (mnY + mxY) * .5f, cz = (mnZ + mxZ) * .5f;
+        float span = MathF.Max(mxX - mnX, MathF.Max(mxY - mnY, mxZ - mnZ));
+        float k = span > 1e-6f && !float.IsInfinity(span) ? 1f / span : 1f;
+
+        var parts = new List<Part>();
+        foreach (var (matIx, b) in buckets)
+        {
+            if (b.Count == 0) continue;
+            var arr = b.ToArray();
+            for (int i = 0; i < arr.Length; i += 8)
+            { arr[i] = (arr[i] - cx) * k; arr[i + 1] = (arr[i + 1] - cy) * k; arr[i + 2] = (arr[i + 2] - cz) * k; }
+            var pbr = matIx >= 0 && matIx < materials.Count ? ReadPbr(materials[matIx]) : new Pbr(0xFFBDBDC6, 0f, 0.5f);
+            string? tex = matIx >= 0 && matIx < materials.Count
+                ? ExtractBaseTexture(root, materials[matIx], views, bin, path, matIx) : null;
+            parts.Add(new Part(arr, arr.Length / 8, pbr, tex));
+        }
+        _partsCache[ck] = parts;
+        return parts;
+    }
+
+    /// <summary>Escreve a textura de cor base (embutida no .glb) num ficheiro que o KLIP possa carregar.</summary>
+    private static string? ExtractBaseTexture(JsonElement root, JsonElement mat,
+        List<JsonElement> views, byte[] bin, string glbPath, int matIx)
+    {
+        try
+        {
+            if (!mat.TryGetProperty("pbrMetallicRoughness", out var p)) return null;
+            if (!p.TryGetProperty("baseColorTexture", out var bt) || !bt.TryGetProperty("index", out var ti)) return null;
+            var textures = Arr(root, "textures");
+            int tix = ti.GetInt32();
+            if (tix < 0 || tix >= textures.Count) return null;
+            if (!textures[tix].TryGetProperty("source", out var srcE) || !srcE.TryGetInt32(out int srcIx)) return null;
+            var images = Arr(root, "images");
+            if (srcIx < 0 || srcIx >= images.Count) return null;
+            var img = images[srcIx];
+
+            // imagem por caminho (glTF separado) → usa-se tal como está
+            if (img.TryGetProperty("uri", out var uriE) && uriE.GetString() is { } uri && !uri.StartsWith("data:"))
+            {
+                var side = Path.Combine(Path.GetDirectoryName(glbPath) ?? ".", uri);
+                return File.Exists(side) ? side : null;
+            }
+            if (!img.TryGetProperty("bufferView", out var bvE) || !bvE.TryGetInt32(out int bvIx)) return null;
+            if (bvIx < 0 || bvIx >= views.Count) return null;
+            var v = views[bvIx];
+            int off = v.TryGetProperty("byteOffset", out var o) ? o.GetInt32() : 0;
+            int len = v.TryGetProperty("byteLength", out var bl) ? bl.GetInt32() : 0;
+            if (len <= 0 || off + len > bin.Length) return null;
+
+            string mime = img.TryGetProperty("mimeType", out var mt) ? (mt.GetString() ?? "image/png") : "image/png";
+            string ext = mime.Contains("jpeg") ? ".jpg" : ".png";
+            var dir = Path.Combine(Path.GetTempPath(), "klip_gltf_tex");
+            Directory.CreateDirectory(dir);
+            var outp = Path.Combine(dir,
+                Path.GetFileNameWithoutExtension(glbPath) + "_m" + matIx + ext);
+            if (!File.Exists(outp) || new FileInfo(outp).Length != len)
+                File.WriteAllBytes(outp, bin[off..(off + len)]);
+            return outp;
+        }
+        catch { return null; }
+    }
 
     public static (float[] data, int count, Pbr pbr) Load(string path)
     {

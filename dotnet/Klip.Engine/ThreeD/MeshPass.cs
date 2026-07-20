@@ -81,16 +81,24 @@ public sealed unsafe class MeshPass : IDisposable
         _vertCount = vertCount;
     }
 
+    /// <param name="clear">false para desenhar POR CIMA do que já está no FBO — é assim que um
+    /// objeto com vários materiais é composto: uma passagem por material, o depth buffer trata do resto.</param>
+    /// <param name="texAll">true = a textura cobre a malha INTEIRA pelas UVs (objeto importado com
+    /// mapa de cor). false = modo cartão: frente/verso/borda escolhidos pela normal.</param>
     public void Render(float[] mvp, float[] model, Vector3 lightDir, Vector3 color, Vector3 camPos,
                        float rough = 0.25f, float metal = 0.85f,
-                       uint frontTex = 0, uint backTex = 0, bool useTex = false, Vector3? edge = null)
+                       uint frontTex = 0, uint backTex = 0, bool useTex = false, Vector3? edge = null,
+                       bool clear = true, bool texAll = false)
     {
         _gl.BindFramebuffer(FramebufferTarget.Framebuffer, _fbo);
         _gl.Viewport(0, 0, (uint)_w, (uint)_h);
         _gl.Enable(EnableCap.DepthTest);
         _gl.Disable(EnableCap.CullFace);
-        _gl.ClearColor(0f, 0f, 0f, 0f);
-        _gl.Clear((uint)(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit));
+        if (clear)
+        {
+            _gl.ClearColor(0f, 0f, 0f, 0f);
+            _gl.Clear((uint)(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit));
+        }
 
         _gl.UseProgram(_prog);
         _gl.BindVertexArray(_vao);
@@ -106,7 +114,7 @@ public sealed unsafe class MeshPass : IDisposable
         _gl.Uniform1(_locEnv, 0);
         _gl.Uniform1(_locEnvLod, _envMaxLod);
         // texturas de face (frente/verso) — só quando a camada as define
-        _gl.Uniform1(_locUseTex, useTex ? 1 : 0);
+        _gl.Uniform1(_locUseTex, useTex ? (texAll ? 2 : 1) : 0);
         if (useTex)
         {
             var e = edge ?? new Vector3(0.93f, 0.93f, 0.93f);
@@ -192,7 +200,9 @@ void main(){
   vec3 V = normalize(uCamPos - vW);
   if (dot(N,V) < 0.0) N = -N;                       // two-sided
   vec3 srgb = uColor;                               // cor sólida por defeito
-  if (uUseTex == 1) {                               // textura de face por normal-z de objeto
+  if (uUseTex == 2) {                               // objeto importado: mapa de cor pelas UVs da malha
+    srgb = texture(uFront, vUV).rgb;
+  } else if (uUseTex == 1) {                        // modo cartão: face por normal-z de objeto
     if (vFaceZ > 0.5)       srgb = texture(uFront, vUV).rgb;                    // frente = arte
     else if (vFaceZ < -0.5) srgb = texture(uBack,  vec2(1.0-vUV.x, vUV.y)).rgb; // verso: u-flip (lê certo ao virar 180° em Y)
     else                    srgb = uEdge;                                       // borda = núcleo de papel

@@ -22,7 +22,8 @@ public static class Hybrid3D
     private static bool _gpuFailed;
     private static MeshPass? _pass;
     private static int _pw, _ph;
-    private static readonly Dictionary<string, (string key, float[] data, int count)> _meshCache = new();
+    // Uma camada pode ter VÁRIAS partes (uma por material do objeto original).
+    private static readonly Dictionary<string, (string key, IReadOnlyList<GltfMesh.Part> parts)> _meshCache = new();
     private static readonly Dictionary<string, uint> _texCache = new();   // path → GL texture (face do produto)
 
     /// <summary>Carrega uma imagem (png/jpg) para textura GL sRGB c/ mipmaps (cache por caminho). Corre na thread klip-3d.</summary>
@@ -135,14 +136,18 @@ public static class Hybrid3D
             if (useMesh)
             {
                 // OBJETO REAL importado — nada de extrusão. A malha já vem normalizada p/ 1 unidade.
-                // .glb traz o material junto (é o que faz o objeto chegar com o aspeto que tinha
-                // no Blender); .obj é o caminho pobre, fica como reserva.
+                // .glb traz OS MATERIAIS junto, um por parte (sola vs tecido vs metal), com as
+                // texturas extraídas; .obj é o caminho pobre, fica como reserva.
                 var ext = System.IO.Path.GetExtension(spec.MeshPath!).ToLowerInvariant();
-                float[] data0; int count0;
-                if (ext is ".glb" or ".gltf") { var g = GltfMesh.Load(spec.MeshPath!); data0 = g.data; count0 = g.count; }
-                else { var o = ObjMesh.Load(spec.MeshPath!); data0 = o.data; count0 = o.count; }
-                if (count0 == 0) return null;
-                m = (key, data0, count0);
+                IReadOnlyList<GltfMesh.Part> parts0;
+                if (ext is ".glb" or ".gltf") parts0 = GltfMesh.LoadParts(spec.MeshPath!);
+                else
+                {
+                    var o = ObjMesh.Load(spec.MeshPath!);
+                    parts0 = new[] { new GltfMesh.Part(o.data, o.count, new GltfMesh.Pbr(0xFFBDBDC6, 0f, 0.5f), null) };
+                }
+                if (parts0.Count == 0 || parts0[0].Count == 0) return null;
+                m = (key, parts0);
             }
             else
             {
@@ -150,11 +155,10 @@ public static class Hybrid3D
                 if (path is null || path.IsEmpty) return null;
                 float scale = PxToWorld;                    // px do canvas → unidades de mundo
                 var data = Extruder.Build(path, scale, (float)spec.Depth, (float)spec.Bevel, out int count);
-                m = (key, data, count);
+                m = (key, new[] { new GltfMesh.Part(data, count, new GltfMesh.Pbr(layer.FillArgb, 0f, 0.5f), null) });
             }
             _meshCache[layer.Name] = m;
         }
-        _pass.SetMesh(m.data, m.count);
 
         // câmara animável (defaults AE-like)
         var cam = comp.Camera;
@@ -195,8 +199,37 @@ public static class Hybrid3D
                 edge = new Vector3(((ec >> 16) & 0xFF) / 255f, ((ec >> 8) & 0xFF) / 255f, (ec & 0xFF) / 255f);
             }
         }
-        _pass.Render(mvp, model, light, color, eye, (float)spec.Rough, (float)spec.Metal,
-                     frontTex, backTex, useTex, edge);
+
+        // UMA PASSAGEM POR MATERIAL. Só a primeira limpa o buffer; as seguintes desenham por cima e
+        // o teste de profundidade resolve a oclusão. Com uma parte só, os sliders do painel continuam
+        // a mandar (é o comportamento de sempre); com várias, cada parte usa o SEU material — é o que
+        // faz um objeto importado deixar de chegar todo da mesma cor.
+        var parts = m.parts;
+        bool perPart = parts.Count > 1 || (parts.Count == 1 && parts[0].BaseTex is { Length: > 0 });
+        for (int i = 0; i < parts.Count; i++)
+        {
+            var part = parts[i];
+            if (part.Count == 0) continue;
+            _pass.SetMesh(part.Data, part.Count);
+
+            var pc = color; float pr = (float)spec.Rough, pm = (float)spec.Metal;
+            uint pTex = frontTex, pBack = backTex; bool pUse = useTex, pTexAll = false;
+            if (perPart)
+            {
+                uint b = part.Material.BaseArgb;
+                pc = new Vector3(((b >> 16) & 0xFF) / 255f, ((b >> 8) & 0xFF) / 255f, (b & 0xFF) / 255f);
+                pr = part.Material.Rough; pm = part.Material.Metal;
+                if (part.BaseTex is { Length: > 0 } bt)
+                {
+                    uint tx = LoadTexture(gpu.Gl, bt);
+                    if (tx != 0) { pTex = tx; pBack = tx; pUse = true; pTexAll = true; }
+                    else pUse = false;
+                }
+                else pUse = false;
+            }
+            _pass.Render(mvp, model, light, pc, eye, pr, pm, pTex, pBack, pUse, edge,
+                         clear: i == 0, texAll: pTexAll);
+        }
 
         // readback direto (glReadPixels) — sem interop GRBackendTexture, robusto em single-file
         var gl = gpu.Gl;

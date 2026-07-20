@@ -51,9 +51,11 @@ try:
     _bpy.ops.object.select_all(action='SELECT')
 except Exception:
     pass
+# export_yup=True e NAO False: o Blender e Z-up, o motor do KLIP (e o proprio glTF) sao Y-up.
+# Com False, tudo o que se modelava chegava DEITADO de costas para a camara.
 _bpy.ops.export_scene.gltf(filepath=_out, export_format='GLB',
                            export_apply=True, export_materials='EXPORT',
-                           export_normals=True, export_yup=False)
+                           export_normals=True, export_yup=True)
 print('KLIP GLB ->', _out)
 ";
         UiChat("·", $"Blender {BlenderBridge.Version} a modelar…");

@@ -272,6 +272,21 @@ public partial class MainWindow : Window
         ShowTab("3d");
     }
 
+    /// <summary>Importar malha pelo bus — sem isto a IA sabia MODELAR mas não sabia TRAZER um .glb do disco.</summary>
+    public string ApiImportMesh(string path, double? x, double? y, double? scale)
+    {
+        if (!File.Exists(path)) throw new FileNotFoundException("ficheiro não encontrado", path);
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        if (ext is not (".glb" or ".gltf" or ".obj")) throw new InvalidOperationException("formato 3D não suportado: " + ext);
+        ImportMesh(path);
+        var id = _layers.Count > 0 ? _layers[^1].Name : "";
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        if (x is not null) ApiSetProp(id, "position.x", x.Value.ToString(inv));
+        if (y is not null) ApiSetProp(id, "position.y", y.Value.ToString(inv));
+        if (scale is not null) ApiSetProp(id, "scale", scale.Value.ToString(inv));
+        return id;
+    }
+
     /// <summary>Áudio → faixa do DAW, e a timeline estica-se para caber a música.</summary>
     private void ImportAudio(string path)
     {

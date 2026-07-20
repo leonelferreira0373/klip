@@ -112,6 +112,12 @@ public sealed class ActionRegistry
             P(("path", "string", "caminho absoluto da imagem")), new[] { "path" },
             a => new { id = _w.ApiInsertImage(Str(a, "path") ?? "") ?? throw new InvalidOperationException("imagem ilegível") }),
 
+        ["import_mesh"] = new("Traz um objeto 3D do disco (.glb/.gltf/.obj) para a cena, COM os materiais e texturas do ficheiro (um material por parte). Usa isto depois de modelares com blender_object, ou para ficheiros que o utilizador já tenha.",
+            P(("path", "string", "caminho absoluto .glb/.gltf/.obj"), ("x", "number", "posição x (opcional)"),
+              ("y", "number", "posição y (opcional)"), ("scale", "number", "escala (opcional)")),
+            new[] { "path" },
+            a => new { id = _w.ApiImportMesh(Str(a, "path") ?? "", Num(a, "x"), Num(a, "y"), Num(a, "scale")) }),
+
         ["insert_rive"] = new("Insere uma animação Rive (.riv) como camada — runtime C# nativo, toca na timeline e exporta em MP4/GIF. anim opcional (nome da animação).",
             P(("path", "string", "caminho .riv absoluto"), ("anim", "string", "nome da animação (opcional)")),
             new[] { "path" },
