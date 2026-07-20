@@ -112,6 +112,10 @@ public sealed class ActionRegistry
             P(("path", "string", "caminho absoluto da imagem")), new[] { "path" },
             a => new { id = _w.ApiInsertImage(Str(a, "path") ?? "") ?? throw new InvalidOperationException("imagem ilegível") }),
 
+        ["inspect_mesh"] = new("MEDE a topologia da malha de uma camada 3D e devolve números: faces, % de quads, triângulos, ngons, pólos de valência 6+, vértices duplicados, faces de área nula, níveis de Subsurf e se está shade smooth. Usa SEMPRE depois de modelar: limpo = ≥90% quads, 0 ngons, 0 pólos 6+, 0 duplicados. Se vier «de refazer», corrige com blender_edit antes de entregar.",
+            P(("id", "string", "camada do objeto 3D")), new[] { "id" },
+            a => _w.ApiInspectMesh(Str(a, "id") ?? "")),
+
         ["blender_edit"] = new("EDITA um objeto 3D que já está na cena, em vez de o refazer do zero. Abre o .blend guardado (com modificadores, nós de material e hierarquia intactos), corre o teu script lá dentro e reexporta a malha; a camada mantém-se e actualiza-se na tela. USA ISTO sempre que o utilizador pedir uma ALTERAÇÃO a um objeto que tu próprio modelaste («faz os cantos mais afiados», «mais alto», «muda o metal para cobre») — remodelar do zero perde tudo o que ele já ajustou. O objeto está em bpy.data.objects; não apagues a cena.",
             P(("id", "string", "camada do objeto 3D"), ("script", "string", "Python bpy que ALTERA a cena já aberta"),
               ("timeout_sec", "number", "default 600")),

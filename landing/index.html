@@ -3,425 +3,517 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>KLIP Animator — editor de design e motion AI-first</title>
-<meta name="description" content="KLIP Animator — editor nativo de design e motion graphics AI-first. Expressões estilo After Effects, 3D real, browser embutido, voz→texto, export 4K vetorial. Um único .exe." />
+<title>KLIP Animator — estúdio de design e animação para Windows</title>
+<meta name="description" content="KLIP Animator: um estúdio de design e animação para Windows, num único ficheiro, conduzido por inteligência artificial. 3D real, cor até à gráfica e vídeo 4K." />
+<link rel="canonical" id="canon" href="/" />
+<meta property="og:type" content="website" />
 <meta property="og:title" content="KLIP Animator" />
-<meta property="og:description" content="Editor de design e motion AI-first. Um único .exe." />
-<meta name="theme-color" content="#6D5EF6" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<meta property="og:description" content="Um estúdio inteiro num só ficheiro. Windows." />
+<meta property="og:image" id="ogimg" content="/img/hero.webp" />
+<meta property="og:image:width" content="2200" />
+<meta property="og:image:height" content="1375" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="theme-color" content="#FDFDFC" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%235B4BC4' stroke-width='7'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://db.onlinewebfonts.com" crossorigin />
+<link rel="preload" as="image" href="/img/hero.webp" />
 <style>
-  :root{
-    --ink:#211F1A; --ink-2:#5F5E5A; --ink-3:#6B6B68;
-    --bg:#FCFCFB; --card:#FFFFFF; --line:#EBEBE8; --line-2:#E0E0DC;
-    --brand:#6D5EF6; --brand-ink:#4A3FCB; --brand-tint:#EFEDFE; --brand-tint-2:#E4E1FC;
-    --r-sm:10px; --r:14px; --r-lg:20px; --r-xl:26px;
-    --s-1:8px; --s-2:16px; --s-3:24px; --s-4:32px; --s-5:48px; --s-6:64px; --s-7:96px;
-    --ease:cubic-bezier(.22,.61,.36,1); --ease-spring:cubic-bezier(.34,1.42,.7,1);
-    --shadow:0 10px 30px rgba(33,31,26,.06); --shadow-brand:0 12px 34px rgba(109,94,246,.30);
+  /* fonte ÚNICA do site */
+  @font-face{
+    font-family:"Farfetch Basis Regular";
+    font-display:swap;
+    src:url("https://db.onlinewebfonts.com/t/ccdb598c7dd2100f5f7a8c1296c1dcfe.woff2")format("woff2"),
+        url("https://db.onlinewebfonts.com/t/ccdb598c7dd2100f5f7a8c1296c1dcfe.woff")format("woff"),
+        url("https://db.onlinewebfonts.com/t/ccdb598c7dd2100f5f7a8c1296c1dcfe.ttf")format("truetype");
   }
-  *{ box-sizing:border-box; margin:0; padding:0 }
-  html{ scroll-behavior:smooth; -webkit-text-size-adjust:100% }
-  body{ font-family:"Manrope",system-ui,sans-serif; color:var(--ink); background:var(--bg);
-        line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden }
-  a{ color:inherit; text-decoration:none }
-  ::selection{ background:var(--brand-tint-2) }
-  :focus-visible{ outline:2.5px solid var(--brand); outline-offset:3px; border-radius:6px }
-  .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0) }
-  .wrap{ max-width:1080px; margin:0 auto; padding:0 var(--s-3) }
+  :root{
+    --canvas:#FDFDFC;--ink:#1A1A1A;--sub:#8E8E8B;--line:rgba(26,26,26,.12);--blue:#0073E6;
+    --ease:cubic-bezier(.22,.61,.36,1);--dur:.4s;--gutter:clamp(22px,5vw,72px);--nav:56px;
+    --font:'Farfetch Basis Regular','SF Pro Display',-apple-system,system-ui,sans-serif;
+    --thin:var(--font);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-snap-type:y mandatory;
+    scrollbar-width:none;-ms-overflow-style:none}
+  html::-webkit-scrollbar{display:none}
+  body{background:var(--canvas);color:var(--ink);font-family:var(--font);
+    -webkit-font-smoothing:antialiased;line-height:1.55;font-weight:400;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  img{display:block;max-width:100%}
+  svg{display:block}
+  h1,h2,h3{font-weight:300;letter-spacing:-.02em;line-height:1.08}
+  ::selection{background:#E6E4F7}
+  :focus-visible{outline:2px solid currentColor;outline-offset:4px;border-radius:999px}
 
-  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:9px;
-        font-family:inherit; font-weight:600; font-size:15px; min-height:48px; padding:0 22px;
-        border-radius:12px; border:1px solid var(--line-2); background:var(--card); color:var(--ink);
-        cursor:pointer; transition:transform .18s var(--ease), background .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease) }
-  .btn:hover{ transform:translateY(-2px); border-color:#CFCFCB }
-  .btn:active{ transform:translateY(0) scale(.985) }
-  .btn-primary{ background:var(--brand); color:#fff; border-color:var(--brand); box-shadow:var(--shadow-brand) }
-  .btn-primary:hover{ background:#5E4FF0; border-color:#5E4FF0; box-shadow:0 16px 40px rgba(109,94,246,.40) }
-  svg.i{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; flex:none }
+  /* botões — leves (500), sem scale */
+  .btn{display:inline-flex;align-items:center;gap:9px;padding:15px 30px;border-radius:999px;
+    font-weight:500;font-size:.95rem;letter-spacing:.01em;
+    transition:background var(--dur) var(--ease),color var(--dur) var(--ease),opacity var(--dur) var(--ease)}
+  .btn.primary{background:var(--ink);color:var(--canvas)}
+  .btn.primary:hover{background:#000}
+  .btn.ghost:hover{opacity:.55}
+  .btn.on-photo.primary{background:var(--canvas);color:var(--ink)}
+  .btn.on-photo.primary:hover{background:#fff}
+  /* glass = mesmo efeito do input de email (soft .16, sem borda, blur 4) */
+  .btn.glass{background:rgba(255,255,255,.16);border:0;color:#fff;
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .btn.glass:hover{background:rgba(255,255,255,.26)}
+  .btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 
-  header{ position:sticky; top:0; z-index:50; background:rgba(252,252,251,.78);
-          backdrop-filter:saturate(1.4) blur(12px); border-bottom:1px solid var(--line) }
-  .nav{ display:flex; align-items:center; justify-content:space-between; height:66px }
-  .brand{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; letter-spacing:-.01em }
-  .logo{ width:28px; height:28px; border-radius:8px; background:var(--brand); color:#fff; display:grid; place-items:center; font-weight:800; font-size:15px }
-  .nav-right{ display:flex; align-items:center; gap:12px }
-  .lang{ display:flex; border:1px solid var(--line-2); border-radius:11px; overflow:hidden; height:44px }
-  .lang button{ border:0; background:transparent; font-family:inherit; font-weight:600; font-size:13px; padding:0 14px; min-width:44px; cursor:pointer; color:var(--ink-3); transition:background .18s var(--ease), color .18s var(--ease) }
-  .lang button[aria-pressed="true"]{ background:var(--brand-tint); color:var(--brand-ink) }
-  .nav .btn{ min-height:44px }
+  /* screens + scroll-trap */
+  .screen{min-height:100svh;scroll-snap-align:start;scroll-snap-stop:always;
+    display:flex;flex-direction:column;justify-content:center;position:relative}
+  .media{position:absolute;inset:0;z-index:0;overflow:hidden}
+  .media img{width:100%;height:100%;object-fit:cover}
 
-  .hero{ text-align:center; padding:var(--s-7) 0 var(--s-6) }
-  .eyebrow{ display:inline-flex; align-items:center; gap:8px; background:var(--brand-tint); color:var(--brand-ink);
-            font-weight:600; font-size:13px; letter-spacing:.01em; padding:7px 15px; border-radius:999px; margin-bottom:var(--s-3) }
-  h1{ font-size:clamp(36px,6.4vw,62px); font-weight:800; letter-spacing:-.028em; line-height:1.03 }
-  h1 em{ font-style:normal; color:var(--brand) }
-  .sub{ font-size:clamp(16.5px,2.3vw,20px); color:var(--ink-2); max-width:60ch; margin:var(--s-3) auto var(--s-4); line-height:1.55 }
-  .cta{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap }
-  .meta{ display:block; color:var(--ink-3); font-size:13px; margin-top:var(--s-2); font-weight:500 }
+  /* reveal (scroll, só a descer, uma vez) */
+  .r{opacity:0;transform:translateY(22px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+  .r.in{opacity:1;transform:none}
+  .hu{opacity:0;transform:translateY(24px);transition:opacity .85s var(--ease),transform .85s var(--ease)}
+  .hu.show{opacity:1;transform:none}
 
-  .stage{ margin:var(--s-6) auto 0; position:relative; width:min(520px,100%); height:220px }
-  .mark{ position:absolute; left:50%; top:50%; width:128px; height:128px; margin:-64px 0 0 -64px;
-         border-radius:32px; background:var(--brand); display:grid; place-items:center; box-shadow:var(--shadow-brand);
-         animation:settle .9s var(--ease-spring) both, float 5.5s ease-in-out 1s infinite }
-  .mark span{ color:#fff; font-weight:800; font-size:60px; line-height:1 }
-  .ring{ position:absolute; left:50%; top:50%; width:210px; height:210px; margin:-105px 0 0 -105px;
-         border:1.5px dashed var(--brand-tint-2); border-radius:50%; animation:spin 26s linear infinite }
-  .chip{ position:absolute; background:var(--card); border:1px solid var(--line-2); box-shadow:var(--shadow);
-         font-weight:600; font-size:12.5px; padding:8px 13px; border-radius:11px; display:flex; align-items:center; gap:7px;
-         opacity:0; animation:pop .6s var(--ease) forwards }
-  .chip svg{ color:var(--brand) }
-  .chip.a{ left:2%; top:14%; animation-delay:.7s } .chip.b{ right:0; top:40%; animation-delay:.95s } .chip.c{ left:8%; bottom:8%; animation-delay:1.2s }
-  @keyframes settle{ from{ transform:translateY(-26px) scale(.9); opacity:0 } to{ transform:none; opacity:1 } }
-  @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-9px) } }
-  @keyframes spin{ to{ transform:rotate(360deg) } }
-  @keyframes pop{ from{ opacity:0; transform:translateY(8px) } to{ opacity:1; transform:none } }
+  /* escala de tipo — um papel, um tamanho */
+  .lede{font-family:var(--thin);font-weight:200;font-size:clamp(1.05rem,1.5vw,1.3rem);
+    letter-spacing:.015em;line-height:1.45;text-wrap:pretty}
+  .lede.on-canvas{color:var(--sub);max-width:36ch}
+  .lede.on-photo{color:rgba(255,255,255,.9);max-width:42ch;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+  .stitle{font-size:clamp(2.1rem,4.4vw,3.4rem);font-weight:300;text-wrap:balance}
 
-  section.block{ padding:var(--s-6) 0 }
-  .h2{ font-size:clamp(25px,4vw,36px); font-weight:800; letter-spacing:-.022em; text-align:center; line-height:1.1 }
-  .lead{ text-align:center; color:var(--ink-2); max-width:56ch; margin:var(--s-2) auto 0; font-size:16.5px }
-  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:var(--s-2); margin-top:var(--s-5) }
-  .feat{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:var(--s-3);
-         transition:transform .2s var(--ease), border-color .2s var(--ease), box-shadow .2s var(--ease) }
-  .feat:hover{ transform:translateY(-3px); border-color:var(--line-2); box-shadow:var(--shadow) }
-  .feat .ic{ width:42px; height:42px; border-radius:12px; background:var(--brand-tint); color:var(--brand-ink); display:grid; place-items:center; margin-bottom:var(--s-2) }
-  .feat h3{ font-size:16.5px; font-weight:700; margin-bottom:5px; letter-spacing:-.01em }
-  .feat p{ font-size:14px; color:var(--ink-2); line-height:1.55 }
+  /* ---------- header (magro, sem fill no topo) ---------- */
+  header{position:fixed;inset:0 0 auto 0;z-index:60;height:var(--nav);display:flex;align-items:center;
+    padding:0 var(--gutter);background:transparent;color:#fff;
+    transition:background var(--dur) var(--ease),color var(--dur) var(--ease),backdrop-filter var(--dur) var(--ease)}
+  header.solid{background:rgba(253,253,252,.82);color:var(--ink);
+    -webkit-backdrop-filter:saturate(1.3) blur(14px);backdrop-filter:saturate(1.3) blur(14px)}
+  .bar{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:1100px;margin:0 auto}
+  .mark{font-size:.95rem;font-weight:500;letter-spacing:-.01em}
+  .lang{display:flex;gap:2px}
+  .lang button{font-size:.76rem;letter-spacing:.1em;opacity:.55;padding:8px 9px;border-radius:999px;
+    transition:opacity var(--dur) var(--ease)}
+  .lang button[aria-pressed="true"]{opacity:1}
 
-  .price{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:var(--s-2); margin-top:var(--s-5) }
-  .plan{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:var(--s-3); text-align:center;
-         transition:transform .2s var(--ease), box-shadow .2s var(--ease) }
-  .plan:hover{ transform:translateY(-3px); box-shadow:var(--shadow) }
-  .plan.pop{ border:2px solid var(--brand); position:relative }
-  .plan.pop::after{ content:attr(data-tag); position:absolute; top:-12px; left:50%; transform:translateX(-50%);
-                    background:var(--brand); color:#fff; font-size:11.5px; font-weight:700; letter-spacing:.02em; padding:4px 13px; border-radius:999px }
-  .plan .name{ color:var(--ink-3); font-weight:600; font-size:12.5px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:var(--s-1) }
-  .plan .kz{ font-size:29px; font-weight:800; letter-spacing:-.02em }
-  .plan .cr{ color:var(--brand-ink); font-weight:600; font-size:14px; margin-top:4px }
-  .note{ text-align:center; color:var(--ink-3); font-size:13.5px; margin:var(--s-3) auto 0; max-width:62ch }
+  /* ---------- HERO ---------- */
+  .hero .media::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,rgba(0,0,0,.52),rgba(0,0,0,.06) 55%,rgba(0,0,0,0) 72%),
+               linear-gradient(180deg,rgba(0,0,0,.34),rgba(0,0,0,0) 26%),
+               linear-gradient(180deg,rgba(0,0,0,0) 58%,rgba(0,0,0,.5))}
+  .hero__inner{position:absolute;inset:0;z-index:2}
+  .hero__title{position:absolute;top:50%;left:var(--gutter);transform:translateY(-50%);
+    max-width:min(780px,88vw);text-align:left}
+  .hero__title h1{font-size:clamp(2.4rem,5.5vw,4.8rem);font-weight:700;color:#fff;line-height:1.05;
+    text-shadow:0 2px 40px rgba(0,0,0,.45)}
+  .hero__bottom{position:absolute;left:var(--gutter);right:var(--gutter);bottom:clamp(30px,5vh,54px);
+    display:flex;justify-content:space-between;align-items:flex-end;gap:24px}
+  #heroCustom{display:none;position:absolute;left:var(--gutter);right:var(--gutter);
+    bottom:calc(clamp(30px,5vh,54px) + 76px);max-width:44ch;
+    font-family:var(--thin);font-weight:200;font-size:.85rem;line-height:1.5;
+    color:rgba(255,255,255,.66);text-shadow:0 1px 4px rgba(0,0,0,.5)}
+  #heroCustom a{color:#fff;text-decoration:underline}
 
-  .download{ text-align:center; background:var(--brand); color:#fff; border-radius:var(--r-xl); padding:var(--s-6) var(--s-3); margin:var(--s-3) 0 }
-  .download h2{ font-size:clamp(25px,4vw,36px); font-weight:800; letter-spacing:-.022em }
-  .download p{ opacity:.94; margin:var(--s-2) auto var(--s-4); max-width:52ch }
-  .download .btn-primary{ background:#fff; color:var(--brand-ink); border-color:#fff; box-shadow:0 14px 34px rgba(0,0,0,.20) }
-  .download .btn-primary:hover{ background:#fff; transform:translateY(-2px) scale(1.01) }
+  /* ---------- ALTO IMPACTO ---------- */
+  .impact{justify-content:flex-end;color:#fff}
+  .impact .media::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.62))}
+  .impact__bar{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-end;
+    gap:20px;flex-wrap:wrap;padding:0 var(--gutter) clamp(44px,7vh,88px)}
+  .impact__spec .p{font-size:clamp(1.05rem,1.5vw,1.3rem);font-weight:500;letter-spacing:.015em}
+  .impact__spec .s{color:rgba(255,255,255,.72);margin-top:2px}
 
-  footer{ border-top:1px solid var(--line); padding:var(--s-4) 0; color:var(--ink-3); font-size:13.5px;
-          display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px }
-  footer a{ color:var(--brand-ink); font-weight:600 }
+  /* ---------- COR ---------- */
+  .colour{color:#fff}
+  .colour .media::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,rgba(0,0,0,.62),rgba(0,0,0,.12) 58%,rgba(0,0,0,0) 78%)}
+  .colour__inner{position:relative;z-index:2;padding:0 var(--gutter);max-width:min(760px,92vw)}
+  .colour h2{color:#fff;text-shadow:0 2px 40px rgba(0,0,0,.35)}
+  .colour .lede{margin-top:clamp(14px,2.4vh,22px)}
 
-  .code{ background:#F4F3F1; border:1px solid var(--line); border-radius:10px; padding:12px 14px; font:12.5px/1.5 ui-monospace,Consolas,monospace; color:#3A3A38; white-space:pre-wrap; word-break:break-word; cursor:copy; margin:0; position:relative; transition:border-color .18s var(--ease) }
-  .code:hover{ border-color:var(--brand) }
-  .code.copied::after{ content:"copiado ✓"; position:absolute; top:7px; right:10px; font-size:10.5px; color:var(--brand-ink); font-weight:600; font-family:'Manrope',sans-serif }
-  .vrow{ padding:16px 18px; background:var(--card); border:1px solid var(--line); border-radius:12px; margin-bottom:10px }
-  .vrow code{ font:11.5px/1.4 ui-monospace,Consolas,monospace; color:var(--brand-ink); word-break:break-all }
-  [data-reveal]{ opacity:0; transform:translateY(18px); transition:opacity .6s var(--ease), transform .6s var(--ease) }
-  [data-reveal].in{ opacity:1; transform:none }
+  /* ---------- secções em canvas ---------- */
+  .plain{padding:calc(var(--nav) + clamp(40px,8vh,90px)) var(--gutter) clamp(40px,8vh,90px);
+    align-items:center;text-align:center}
+  .plain__inner{max-width:1100px;margin:0 auto;width:100%;display:flex;flex-direction:column;align-items:center}
+  .plain .lede{margin-top:clamp(14px,2.4vh,22px)}
+  .cta{margin-top:clamp(24px,3.6vh,38px)}
 
-  @media (max-width:640px){
-    .hero{ padding:var(--s-6) 0 var(--s-5) } .stage{ height:200px }
-    .nav .btn span{ display:none } .nav .btn{ padding:0 12px }
-    footer{ justify-content:center; text-align:center }
+  /* ---------- versões ---------- */
+  #versionList{width:100%;max-width:600px;margin:clamp(20px,4vh,40px) auto 0;text-align:left;
+    max-height:36svh;overflow-y:auto;scrollbar-width:none}
+  #versionList::-webkit-scrollbar{display:none}
+  .vrow{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:11px 0}
+  .vrow .v{font-size:.94rem;font-weight:500}
+  .vrow .v span{color:var(--sub);font-weight:200}
+  .vrow code{font:400 .68rem/1 ui-monospace,Consolas,monospace;color:var(--sub);word-break:break-all}
+
+  /* ---------- campos de email ---------- */
+  .field{display:flex;align-items:center;gap:12px;flex-wrap:wrap;max-width:540px;width:100%}
+  .field input{flex:1 1 240px;min-width:0;background:rgba(255,255,255,.16);border:0;border-radius:999px;
+    padding:15px 22px;font-family:inherit;font-size:1rem;color:#fff;outline:none;
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .field input::placeholder{color:rgba(255,255,255,.82)}
+  .field .btn{flex:0 0 auto}
+  .field.dark input{background:rgba(26,26,26,.06);color:var(--ink)}
+  .field.dark input::placeholder{color:var(--sub)}
+  .msg{font-family:var(--thin);font-weight:200;font-size:.85rem;color:var(--sub);margin-top:12px;min-height:1.1em}
+  #comingSoon{display:none;flex-direction:column;align-items:center;width:100%}
+  #comingSoon .field{justify-content:center}
+
+  /* ---------- FOOTER = banda de email + navegação ---------- */
+  .foot{padding:clamp(40px,6vh,80px) var(--gutter);justify-content:flex-end}
+  .foot__inner{max-width:1100px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:clamp(28px,5vh,52px)}
+  .sub{position:relative;border-radius:24px;overflow:hidden;min-height:clamp(280px,48vh,440px);
+    display:flex;align-items:center;padding:clamp(18px,2.5vw,36px);width:100%}
+  .sub img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:0}
+  .sub::after{content:"";position:absolute;inset:0;z-index:1;
+    background:linear-gradient(90deg,rgba(0,0,0,.62),rgba(0,0,0,.15) 58%,rgba(0,0,0,0))}
+  .sub__form{position:relative;z-index:2;width:100%;max-width:540px}
+  .sub .msg{color:rgba(255,255,255,.8)}
+  .foot__cols{width:100%;display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(24px,3vw,48px);max-width:560px}
+  .foot h4{font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);margin-bottom:14px;font-weight:600}
+  .foot__cols nav a{display:block;color:var(--ink);font-size:.94rem;padding:5px 0;transition:opacity var(--dur) var(--ease)}
+  .foot__cols nav a:hover{opacity:.55}
+  .rights{font-family:var(--thin);font-weight:200;font-size:.78rem;color:var(--sub)}
+
+  /* ---------- dot nav ---------- */
+  #dotnav{position:fixed;right:clamp(10px,1.6vw,22px);top:50%;transform:translateY(-50%);
+    z-index:70;display:flex;flex-direction:column;gap:11px}
+  #dotnav button{width:8px;height:8px;padding:0;border-radius:999px;background:rgba(26,26,26,.22);
+    transition:background var(--dur) var(--ease)}
+  #dotnav button[aria-current="true"]{background:var(--ink)}
+  #dotnav.on-dark button{background:rgba(255,255,255,.3)}
+  #dotnav.on-dark button[aria-current="true"]{background:#fff}
+
+  @media (max-width:760px){
+    /* scroll-trap MANTÉM-SE no mobile */
+    .hero .media img{object-position:68% center}
+    .hero .media::after{background:linear-gradient(180deg,rgba(0,0,0,.72),rgba(0,0,0,.1) 44%,rgba(0,0,0,0) 60%),
+      linear-gradient(180deg,rgba(0,0,0,0) 58%,rgba(0,0,0,.62))}
+    .hero__title{top:clamp(96px,17vh,160px);left:0;right:0;transform:none;max-width:none;text-align:center;padding:0 var(--gutter)}
+    .hero__bottom{flex-direction:column;align-items:center;text-align:center;gap:16px}
+    .hero__title h1{font-size:clamp(2.2rem,9vw,3rem)}
+    .lede.on-photo{max-width:34ch}
+    #heroCustom{text-align:center;bottom:calc(clamp(30px,5vh,54px) + 132px)}
+    .colour .media::after{background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.15) 55%,rgba(0,0,0,.4))}
+    .colour__inner{text-align:center}
+    .colour .lede{margin-left:auto;margin-right:auto}
+    .impact__bar{flex-direction:column;align-items:flex-start}
+    /* o rodapé TEM de caber em 100svh: com snap mandatory, transbordar prende o scroll */
+    .sub{min-height:clamp(210px,36vh,340px)}
+    .foot__cols{grid-template-columns:1fr 1fr;max-width:none}
   }
   @media (prefers-reduced-motion:reduce){
-    *{ animation:none !important }
-    [data-reveal]{ opacity:1; transform:none; transition:none }
-    html{ scroll-behavior:auto }
+    *{animation:none!important;transition:none!important}
+    .r,.hu{opacity:1;transform:none}
   }
-
-  /* ---- desktop scroll-snap sections + dot nav (Step 4) ---- */
-  #dotnav{ position:fixed; right:16px; top:50%; transform:translateY(-50%); z-index:60;
-           display:none; flex-direction:column; gap:12px; }
-  #dotnav button{ width:11px; height:11px; padding:0; border-radius:50%; border:1.6px solid var(--line-2);
-                  background:transparent; cursor:pointer; transition:transform .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease); }
-  #dotnav button:hover{ border-color:var(--brand); transform:scale(1.25); }
-  #dotnav button[aria-current="true"]{ background:var(--brand); border-color:var(--brand); transform:scale(1.3); }
-  @media (min-width:900px) and (pointer:fine) and (prefers-reduced-motion:no-preference){
-    html{ scroll-snap-type:y proximity; scroll-padding-top:66px; }
-    body.snapped .snap{ scroll-snap-align:start; min-height:100vh; display:flex; flex-direction:column;
-                        justify-content:center; padding-top:84px; padding-bottom:48px; }
-    body.snapped #dotnav{ display:flex; }
-  }
-  #comingSoon input{ flex:1; min-width:200px; min-height:48px; padding:0 16px; border:1px solid var(--line-2);
-                     border-radius:12px; font-family:inherit; font-size:15px; color:var(--ink); background:#fff; }
 </style>
 </head>
 <body>
 
-<nav id="dotnav" aria-label="Navegação por secções"></nav>
+<nav id="dotnav" aria-label="Secções"></nav>
 
-<header>
-  <div class="wrap nav">
-    <a href="#top" class="brand"><span class="logo" aria-hidden="true">K</span> KLIP Animator</a>
-    <div class="nav-right">
-      <div class="lang" role="group" aria-label="idioma / language">
-        <button type="button" data-lang="pt" aria-pressed="true">PT</button>
-        <button type="button" data-lang="en" aria-pressed="false">EN</button>
-      </div>
-      <a href="#download" class="btn btn-primary">
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-        <span data-pt="Descarregar" data-en="Download">Descarregar</span>
-      </a>
+<header id="hdr">
+  <div class="bar">
+    <a href="#hero" class="mark">KLIP Animator</a>
+    <div class="lang" role="group" aria-label="idioma / language">
+      <button type="button" data-lang="pt" aria-pressed="true">PT</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
     </div>
   </div>
 </header>
 
-<main id="top">
-  <section class="wrap hero">
-    <span class="eyebrow"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z"/></svg>
-      <span data-pt="Editor de design e motion, nativo e AI-first" data-en="AI-first native design and motion editor">Editor de design e motion, nativo e AI-first</span>
-    </span>
-    <h1 data-pt="Desenha e anima com uma IA que <em>vê</em> o que fazes." data-en="Design and animate with an AI that <em>sees</em> your work.">Desenha e anima com uma IA que <em>vê</em> o que fazes.</h1>
-    <p class="sub" data-pt="Expressões estilo After Effects, 3D real, browser embutido, voz→texto e export 4K vetorial — tudo num único .exe, sem instalação pesada."
-       data-en="After Effects-style expressions, real 3D, a built-in browser, voice→text and lossless 4K export — all in a single .exe, no heavy install.">Expressões estilo After Effects, 3D real, browser embutido, voz→texto e export 4K vetorial — tudo num único .exe, sem instalação pesada.</p>
-    <div class="cta">
-      <a href="#download" class="btn btn-primary">
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-        <span data-pt="Descarregar para Windows" data-en="Download for Windows">Descarregar para Windows</span>
-      </a>
-      <a href="#features" class="btn"><span data-pt="Ver o que faz" data-en="See what it does">Ver o que faz</span></a>
-    </div>
-    <small class="meta" data-pt="Windows 10/11 · .exe único · ~70 MB · sem dependências" data-en="Windows 10/11 · single .exe · ~70 MB · no dependencies">Windows 10/11 · .exe único · ~70 MB · sem dependências</small>
-    <div id="heroCustom" style="display:none;max-width:640px;margin:var(--s-4) auto 0;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 26px;"></div>
+<main>
 
-    <div class="stage" aria-hidden="true">
-      <div class="ring"></div>
-      <div class="mark"><span>K</span></div>
-      <div class="chip a"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 7h16M4 12h10M4 17h7"/></svg> wiggle(2,30)</div>
-      <div class="chip b"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 2 2 7l10 5 10-5-10-5z"/></svg> 3D · 4K</div>
-      <div class="chip c"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M5 12l4 4L19 6"/></svg> spring</div>
+  <!-- ===== HERO ===== -->
+  <section id="hero" class="screen hero" data-dark="1" aria-label="KLIP Animator">
+    <div class="media">
+      <img src="/img/hero.webp" width="2200" height="1375" fetchpriority="high"
+           alt="Objecto 3D roxo metálico renderizado no motor do KLIP Animator" />
     </div>
-  </section>
-
-  <section id="features" class="wrap block">
-    <h2 class="h2" data-reveal data-pt="Um estúdio completo, conduzido por IA" data-en="A full studio, driven by AI">Um estúdio completo, conduzido por IA</h2>
-    <p class="lead" data-reveal data-pt="Pede em linguagem natural. A IA compõe, vê o render, critica e refina — como um motion designer." data-en="Ask in plain language. The AI composes, sees the render, critiques and refines — like a motion designer.">Pede em linguagem natural. A IA compõe, vê o render, critica e refina — como um motion designer.</p>
-    <div class="grid">
-      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/></svg></div>
-        <h3 data-pt="Linguagem de expressões AE" data-en="AE expression language">Linguagem de expressões AE</h3>
-        <p data-pt="JavaScript real em cada propriedade: wiggle, loopOut, linear, valueAtTime, springs. O segredo do estilo Apple." data-en="Real JavaScript on every property: wiggle, loopOut, linear, valueAtTime, springs. The Apple-style secret.">JavaScript real em cada propriedade: wiggle, loopOut, linear, valueAtTime, springs. O segredo do estilo Apple.</p></div>
-      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-        <h3 data-pt="3D real + câmara animável" data-en="Real 3D + animatable camera">3D real + câmara animável</h3>
-        <p data-pt="Extrude e bevel iluminados, câmara keyframável (dolly, orbit, truck). Vetorial, nítido a 4K." data-en="Lit extrude and bevel, keyframable camera (dolly, orbit, truck). Vector, crisp at 4K.">Extrude e bevel iluminados, câmara keyframável (dolly, orbit, truck). Vetorial, nítido a 4K.</p></div>
-      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></div>
-        <h3 data-pt="Browser embutido + visão" data-en="Built-in browser + vision">Browser embutido + visão</h3>
-        <p data-pt="Pesquisa, clica em qualquer imagem e traz para a tela. A IA vê a página e ajuda-te a navegar." data-en="Search, click any image to pull it onto the canvas. The AI sees the page and helps you browse.">Pesquisa, clica em qualquer imagem e traz para a tela. A IA vê a página e ajuda-te a navegar.</p></div>
-      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M8 7v10M16 7v10M4 10v4M20 10v4"/></svg></div>
-        <h3 data-pt="Voz → texto on-device" data-en="Voice → text on-device">Voz → texto on-device</h3>
-        <p data-pt="Transcreve áudio e vídeo localmente (Whisper). A mesma tech com que a IA lê imagens, mas para som." data-en="Transcribe audio and video locally (Whisper). The same tech the AI uses to read images, for sound.">Transcreve áudio e vídeo localmente (Whisper). A mesma tech com que a IA lê imagens, mas para som.</p></div>
-      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 9h16M9 9v11"/></svg></div>
-        <h3 data-pt="Export sem perdas" data-en="Lossless export">Export sem perdas</h3>
-        <p data-pt="MP4, GIF, SVG, Lottie e TIFF CMYK com perfil ICC para gráfica. 4K vetorial, sem pixelização." data-en="MP4, GIF, SVG, Lottie and CMYK TIFF with ICC profile for print. Vector 4K, no pixelation.">MP4, GIF, SVG, Lottie e TIFF CMYK com perfil ICC para gráfica. 4K vetorial, sem pixelização.</p></div>
-      <div class="feat" data-reveal><div class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10h-10z"/><path d="M12 2v10h10"/></svg></div>
-        <h3 data-pt="Rive e Lottie nativos" data-en="Native Rive and Lottie">Rive e Lottie nativos</h3>
-        <p data-pt="Runtimes C# próprios: importa .riv e .json bodymovin, toca na timeline e exporta." data-en="Custom C# runtimes: import .riv and bodymovin .json, play on the timeline and export.">Runtimes C# próprios: importa .riv e .json bodymovin, toca na timeline e exporta.</p></div>
-    </div>
-  </section>
-
-  <section id="pricing" class="wrap block">
-    <h2 class="h2" data-reveal data-pt="Créditos de IA, pagos por Multicaixa" data-en="AI credits, paid by Multicaixa">Créditos de IA, pagos por Multicaixa</h2>
-    <p class="lead" data-reveal data-pt="Carrega créditos e usa Sonnet, Haiku ou KLIP AI. Paga por transferência e envia o comprovativo dentro da app — creditado na hora." data-en="Top up credits and use Sonnet, Haiku or KLIP AI. Pay by transfer and send the receipt inside the app — credited instantly.">Carrega créditos e usa Sonnet, Haiku ou KLIP AI. Paga por transferência e envia o comprovativo dentro da app — creditado na hora.</p>
-    <div class="price">
-      <div class="plan" data-reveal><div class="name">Starter</div><div class="kz">40 000 Kz</div><div class="cr">≈ $20 <span data-pt="de crédito" data-en="of credit">de crédito</span></div></div>
-      <div class="plan pop" data-reveal data-tag="Pro"><div class="name">Pro</div><div class="kz">200 000 Kz</div><div class="cr">≈ $100 <span data-pt="de crédito" data-en="of credit">de crédito</span></div></div>
-      <div class="plan" data-reveal><div class="name">Studio</div><div class="kz">400 000 Kz</div><div class="cr">≈ $200 <span data-pt="de crédito" data-en="of credit">de crédito</span></div></div>
-      <div class="plan" data-reveal><div class="name" data-pt="Personalizado" data-en="Custom">Personalizado</div><div class="kz" data-pt="≥ 40 000" data-en="≥ 40,000">≥ 40 000</div><div class="cr" data-pt="qualquer valor" data-en="any amount">qualquer valor</div></div>
-    </div>
-    <p class="note" data-reveal data-pt="Cada comprovativo é verificado pela assinatura digital EMIS. Sem cartões, sem intermediários." data-en="Every receipt is verified by its EMIS digital signature. No cards, no middlemen.">Cada comprovativo é verificado pela assinatura digital EMIS. Sem cartões, sem intermediários.</p>
-  </section>
-
-  <section id="integrations" class="wrap block">
-    <h2 class="h2" data-reveal data-pt="Integra o KLIP em qualquer coisa" data-en="Integrate KLIP into anything">Integra o KLIP em qualquer coisa</h2>
-    <p class="lead" data-reveal data-pt="O mesmo .exe é editor E bridge. Conduz por MCP, CLI, HTTP ou a tua própria chave. Copia e cola." data-en="The same .exe is editor AND bridge. Drive it via MCP, CLI, HTTP or your own key. Copy and paste.">O mesmo .exe é editor E bridge. Conduz por MCP, CLI, HTTP ou a tua própria chave. Copia e cola.</p>
-    <div class="grid" style="margin-top:2rem;">
-      <div class="feat" data-reveal><h3>MCP</h3><p style="margin-bottom:10px;" data-pt="O .exe fala MCP (Claude Desktop / Code):" data-en="The .exe speaks MCP (Claude Desktop / Code):">O .exe fala MCP (Claude Desktop / Code):</p><pre class="code" data-copy>"klip": { "command": "KLIP Animator.exe", "args": ["--mcp-stdio"] }</pre></div>
-      <div class="feat" data-reveal><h3>HTTP bus</h3><p style="margin-bottom:10px;" data-pt="Porta em %TEMP%\klip_mcp.json:" data-en="Port in %TEMP%\klip_mcp.json:">Porta em %TEMP%\klip_mcp.json:</p><pre class="code" data-copy>curl -X POST http://127.0.0.1:PORT/call \
- -d '{"action":"insert_shape","params":{"shape":"squircle","fill":"#6D5EF6"}}'</pre></div>
-      <div class="feat" data-reveal><h3>BYOK</h3><p style="margin-bottom:10px;" data-pt="A tua chave Anthropic, local:" data-en="Your Anthropic key, local:">A tua chave Anthropic, local:</p><pre class="code" data-copy>%APPDATA%\Klip\ai.json
-{ "api_key": "sk-ant-..." }</pre></div>
-      <div class="feat" data-reveal><h3>CLI · SDK</h3><p style="margin-bottom:10px;" data-pt="Claude Code embutido; bus = HTTP em qualquer linguagem:" data-en="Claude Code built-in; bus = HTTP in any language:">Claude Code embutido; bus = HTTP em qualquer linguagem:</p><pre class="code" data-copy>fetch(`http://127.0.0.1:${port}/manifest`).then(r=>r.json())</pre></div>
-    </div>
-    <div style="text-align:center;margin-top:2rem;">
-      <a href="/llms.txt" class="btn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span data-pt="Copiar guia para LLM (llms.txt)" data-en="Copy LLM guide (llms.txt)">Copiar guia para LLM (llms.txt)</span></a>
-    </div>
-  </section>
-
-  <section id="versions" class="wrap block">
-    <h2 class="h2" data-reveal data-pt="Versões e verificação" data-en="Versions and verification">Versões e verificação</h2>
-    <p class="lead" data-reveal data-pt="Confirma que o teu .exe é o oficial: o MD5 abaixo tem de bater com o teu ficheiro." data-en="Confirm your .exe is official: the MD5 below must match your file.">Confirma que o teu .exe é o oficial: o MD5 abaixo tem de bater com o teu ficheiro.</p>
-    <div id="versionList" style="max-width:640px;margin:2rem auto 0;"></div>
-  </section>
-
-  <section id="download" class="wrap block">
-    <div class="download" data-reveal>
-      <h2 data-pt="Pronto a usar. Um único ficheiro." data-en="Ready to use. A single file.">Pronto a usar. Um único ficheiro.</h2>
-      <p data-pt="Descarrega, faz duplo-clique, cria. Sem instalador, sem runtimes, sem configuração." data-en="Download, double-click, create. No installer, no runtimes, no setup.">Descarrega, faz duplo-clique, cria. Sem instalador, sem runtimes, sem configuração.</p>
-      <a id="dl" href="/c/download" class="btn btn-primary">
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-        <span data-pt="Descarregar KLIP Animator" data-en="Download KLIP Animator">Descarregar KLIP Animator</span>
-      </a>
-      <div id="comingSoon" style="display:none;">
-        <h2 data-pt="Em breve para telemóvel" data-en="Coming soon to phones">Em breve para telemóvel</h2>
-        <p data-pt="O KLIP Animator é uma app de desktop (Windows). A versão para telemóvel está a caminho — deixa o teu email e avisamos-te no lançamento." data-en="KLIP Animator is a desktop app (Windows). The phone version is on the way — leave your email and we'll tell you at launch.">O KLIP Animator é uma app de desktop (Windows). A versão para telemóvel está a caminho — deixa o teu email e avisamos-te no lançamento.</p>
-        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:420px;margin:0 auto;">
-          <input id="csEmail" type="email" placeholder="o-teu@email.com" aria-label="email" />
-          <button class="btn btn-primary" onclick="csNotify()" style="background:#fff;color:var(--brand-ink);border-color:#fff;"><span data-pt="Avisar-me" data-en="Notify me">Avisar-me</span></button>
-        </div>
-        <div id="csMsg" style="font-size:13px;opacity:.92;margin-top:12px;min-height:18px;"></div>
+    <div class="hero__inner">
+      <div class="hero__title">
+        <h1 class="hu"
+            data-pt="Um estúdio<br />inteiro num<br />só ficheiro"
+            data-en="A whole<br />studio in one<br />single file">Um estúdio<br />inteiro num<br />só ficheiro</h1>
+      </div>
+      <div id="heroCustom"></div>
+      <div class="hero__bottom">
+        <p class="lede on-photo hu"
+           data-pt="Design, animação e 3D para Windows, conduzidos por inteligência artificial."
+           data-en="Design, animation and 3D for Windows, driven by artificial intelligence.">Design, animação e 3D para Windows, conduzidos por inteligência artificial.</p>
+        <a class="btn on-photo primary hu" href="#descarregar"><span data-pt="Descarregar" data-en="Download">Descarregar</span><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
       </div>
     </div>
   </section>
+
+  <!-- ===== ALTO IMPACTO ===== -->
+  <section id="impacto" class="screen impact" data-dark="1" aria-label="Motor 3D">
+    <div class="media">
+      <img src="/img/impacto.webp" width="2200" height="1375" loading="lazy"
+           alt="Grande plano do mesmo objecto 3D, iluminação e material do motor do KLIP" />
+    </div>
+    <div class="impact__bar">
+      <div class="impact__spec r">
+        <div class="p" data-pt="Versão 1.1.0" data-en="Version 1.1.0">Versão 1.1.0</div>
+        <div class="s lede" data-pt="3D real, vídeo 4K com som" data-en="Real 3D, 4K video with sound">3D real, vídeo 4K com som</div>
+      </div>
+      <a class="btn glass r" href="#descarregar"><span data-pt="Descarregar" data-en="Download">Descarregar</span><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    </div>
+  </section>
+
+  <!-- ===== COR ===== -->
+  <section id="cor" class="screen colour" data-dark="1" aria-label="Cor">
+    <div class="media">
+      <img src="/img/cor.webp" width="2200" height="1375" loading="lazy"
+           alt="Gradiente multi-stop gerado pelo motor de cor do KLIP" />
+    </div>
+    <div class="colour__inner">
+      <h2 class="stitle r" data-pt="Cor até&nbsp;à gráfica" data-en="Colour ready for&nbsp;print">Cor até&nbsp;à gráfica</h2>
+      <p class="lede on-photo r"
+         data-pt="Do PANTONE ao CMYK, com perfil ICC&nbsp;real."
+         data-en="From PANTONE to CMYK, with a real ICC&nbsp;profile.">Do PANTONE ao CMYK, com perfil ICC&nbsp;real.</p>
+    </div>
+  </section>
+
+  <!-- ===== DESCARREGAR ===== -->
+  <section id="descarregar" class="screen plain" aria-label="Descarregar">
+    <div class="plain__inner">
+      <h2 class="stitle r" data-pt="Nada a instalar" data-en="Nothing to install">Nada a instalar</h2>
+      <p class="lede on-canvas r"
+         data-pt="Um único ficheiro. Windows 10&nbsp;e&nbsp;11."
+         data-en="One single file. Windows 10&nbsp;and&nbsp;11.">Um único ficheiro. Windows 10&nbsp;e&nbsp;11.</p>
+      <p class="cta r">
+        <a id="dl" href="/c/download" class="btn primary"><span data-pt="Descarregar para Windows" data-en="Download for Windows">Descarregar para Windows</span><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </p>
+      <div id="comingSoon">
+        <p class="lede on-canvas" style="margin-bottom:clamp(18px,3vh,28px)"
+           data-pt="Em breve no telemóvel — deixa o&nbsp;email."
+           data-en="Coming soon to phones — leave your&nbsp;email.">Em breve no telemóvel — deixa o&nbsp;email.</p>
+        <div class="field dark">
+          <input id="csEmail" type="email" autocomplete="email" placeholder="o-teu@email.com" aria-label="email" />
+          <button type="button" class="btn primary" onclick="csNotify()"><span data-pt="Avisar-me" data-en="Notify me">Avisar-me</span></button>
+        </div>
+        <div id="csMsg" class="msg"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== VERSÕES ===== -->
+  <section id="versoes" class="screen plain" aria-label="Versões">
+    <div class="plain__inner">
+      <h2 class="stitle r" data-pt="Versões" data-en="Versions">Versões</h2>
+      <p class="lede on-canvas r"
+         data-pt="Confirma o MD5 do teu&nbsp;ficheiro."
+         data-en="Check the MD5 of your&nbsp;file.">Confirma o MD5 do teu&nbsp;ficheiro.</p>
+      <div id="versionList"></div>
+    </div>
+  </section>
+
 </main>
 
-<section class="wrap block" style="text-align:center;">
-  <h2 class="h2" data-reveal data-pt="Novidades do KLIP" data-en="KLIP updates">Novidades do KLIP</h2>
-  <p class="lead" data-reveal data-pt="Casos de uso, atualizações e dicas. Sem spam." data-en="Use cases, updates and tips. No spam.">Casos de uso, atualizações e dicas. Sem spam.</p>
-  <div data-reveal style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:var(--s-4);max-width:460px;margin-left:auto;margin-right:auto;">
-    <input id="subEmail" type="email" placeholder="o-teu@email.com" style="flex:1;min-width:220px;min-height:48px;padding:0 16px;border:1px solid var(--line-2);border-radius:12px;font-family:inherit;font-size:15px;color:var(--ink);" />
-    <button id="subBtn" class="btn btn-primary" onclick="subscribe()"><span data-pt="Subscrever" data-en="Subscribe">Subscrever</span></button>
-  </div>
-  <div id="subMsg" style="font-size:13px;color:var(--ink-3);margin-top:12px;"></div>
-</section>
+<!-- ===== FOOTER = email (banda) + navegação ===== -->
+<footer class="screen foot" aria-label="Subscrever e rodapé">
+  <div class="foot__inner">
+    <div class="sub r">
+      <img src="/img/hero.webp" width="2200" height="1375" loading="lazy"
+           alt="Objecto 3D roxo do motor do KLIP Animator" />
+      <div class="sub__form">
+        <div class="field">
+          <input id="subEmail" type="email" autocomplete="email" placeholder="o-teu@email.com" aria-label="email" />
+          <button type="button" class="btn on-photo primary" onclick="subscribe()"><span data-pt="Subscrever" data-en="Subscribe">Subscrever</span></button>
+        </div>
+        <div id="subMsg" class="msg"></div>
+      </div>
+    </div>
 
-<footer class="wrap">
-  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
-    <a id="src" href="#">GitHub</a>
-    <a href="#integrations" data-pt="Integrações" data-en="Integrations">Integrações</a>
-    <a href="#versions" data-pt="Versões · MD5" data-en="Versions · MD5">Versões · MD5</a>
-    <a href="/llms.txt">llms.txt</a>
-    <a href="/receita" data-pt="Receita" data-en="Revenue">Receita</a>
-    <a href="/whitepaper" data-pt="White paper técnico" data-en="Technical white paper">White paper técnico</a>
-    <a href="/legal" data-pt="White paper legal" data-en="Legal white paper">White paper legal</a>
-    <a href="/terms" data-pt="Termos" data-en="Terms">Termos</a>
-    <a href="/privacy" data-pt="Privacidade" data-en="Privacy">Privacidade</a>
+    <div class="foot__cols r">
+      <nav aria-label="Produto">
+        <h4 data-pt="Produto" data-en="Product">Produto</h4>
+        <a href="#descarregar" data-pt="Descarregar" data-en="Download">Descarregar</a>
+        <a href="#versoes" data-pt="Versões" data-en="Versions">Versões</a>
+        <a id="src" href="https://github.com/leonelferreira0373/klip">GitHub</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+      <nav aria-label="Legal">
+        <h4 data-pt="Legal" data-en="Legal">Legal</h4>
+        <a href="/terms" data-pt="Termos" data-en="Terms">Termos</a>
+        <a href="/privacy" data-pt="Privacidade" data-en="Privacy">Privacidade</a>
+        <a href="/whitepaper" data-pt="White paper" data-en="White paper">White paper</a>
+        <a href="/receita" data-pt="Receita" data-en="Revenue">Receita</a>
+      </nav>
+    </div>
+
+    <div class="rights">© <span id="yr">2026</span> KLIP Animator · Ferreira Korp</div>
   </div>
-  <div>© <span id="yr">2026</span> KLIP Animator · Ferreira Korp · <span data-pt="Feito em Angola" data-en="Made in Angola">Feito em Angola</span></div>
 </footer>
 
 <script>
-  var DOWNLOAD_URL = "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe";
   var REPO_URL = "https://github.com/leonelferreira0373/klip";
-  document.getElementById("dl").href = "/c/download";   // conta o clique no worker, depois 302 → .exe
+  var WK = "https://ferreirakorp-licensing.leonelferreira0373.workers.dev";
+
+  document.getElementById("dl").href = "/c/download";   /* conta o clique no worker, depois 302 → .exe */
   document.getElementById("src").href = REPO_URL;
   document.getElementById("yr").textContent = new Date().getFullYear();
+  try{
+    var base = location.origin + location.pathname.replace(/index\.html$/, "");
+    document.getElementById("canon").href = base;
+    document.getElementById("ogimg").setAttribute("content", location.origin + "/img/hero.webp");
+  }catch(e){}
 
+  /* ---------------- idioma ---------------- */
+  var LANG = "pt";
   function setLang(l){
-    document.documentElement.lang = l;
+    LANG = (l === "en") ? "en" : "pt";
+    document.documentElement.lang = LANG;
     document.querySelectorAll("[data-pt]").forEach(function(el){
-      var v = el.getAttribute("data-" + l);
-      if(v != null){ if(/<[a-z]/i.test(v)) el.innerHTML = v; else el.textContent = v; }
+      var v = el.getAttribute("data-" + LANG);
+      if(v != null) el.innerHTML = v;
     });
     document.querySelectorAll(".lang button").forEach(function(b){
-      b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === l));
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === LANG));
     });
-    try{ localStorage.setItem("klip_lang", l); }catch(e){}
+    labelDots();
+    try{ localStorage.setItem("klip_lang", LANG); }catch(e){}
   }
   document.querySelectorAll(".lang button").forEach(function(b){
     b.addEventListener("click", function(){ setLang(b.getAttribute("data-lang")); });
   });
-  var saved = "pt";
-  try{ saved = localStorage.getItem("klip_lang") || (navigator.language||"pt").slice(0,2); }catch(e){}
-  setLang(saved === "en" ? "en" : "pt");
 
-  var mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-  if("IntersectionObserver" in window && !mq.matches){
-    var io = new IntersectionObserver(function(es){
-      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
-    }, { threshold:.12, rootMargin:"0px 0px -8% 0px" });
-    document.querySelectorAll("[data-reveal]").forEach(function(el){ io.observe(el); });
-  } else {
-    document.querySelectorAll("[data-reveal]").forEach(function(el){ el.classList.add("in"); });
-  }
-
-  document.querySelectorAll("[data-copy]").forEach(function(el){
-    el.addEventListener("click", function(){
-      navigator.clipboard.writeText(el.textContent.trim()).then(function(){
-        el.classList.add("copied"); setTimeout(function(){ el.classList.remove("copied"); }, 1600);
-      });
-    });
-  });
-
-  fetch("/version.json").then(function(r){ return r.json(); }).then(function(v){
-    var host = document.getElementById("versionList"); if(!host) return;
-    (v.history || []).forEach(function(h){
-      var d = document.createElement("div"); d.className = "vrow";
-      d.innerHTML = '<div style="font-weight:700;">v' + h.version + ' <span style="color:var(--ink-3);font-weight:500;">· ' + h.date + '</span></div>' +
-        '<div style="font-size:13.5px;color:var(--ink-2);margin:4px 0 8px;">' + (h.notes || "") + '</div>' +
-        '<div style="font-size:11.5px;color:var(--ink-3);">MD5: <code>' + (h.md5 || "—") + '</code></div>';
-      host.appendChild(d);
-    });
-  }).catch(function(){});
-
-  var WK = "https://ferreirakorp-licensing.leonelferreira0373.workers.dev";
-  fetch(WK + "/klip/hero", { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){
-    if(d && d.hero){ var el = document.getElementById("heroCustom"); el.innerHTML = d.hero; el.style.display = "block"; }
-  }).catch(function(){});
-  function subscribe(){
-    var em = document.getElementById("subEmail").value.trim(), msg = document.getElementById("subMsg");
-    if(!em || em.indexOf("@") < 1){ msg.textContent = "Escreve um email válido."; return; }
-    fetch(WK + "/klip/subscribe", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:em }) })
-      .then(function(r){ return r.json(); }).then(function(d){
-        msg.textContent = d.ok ? "Subscrito ✓ obrigado!" : (d.error || "erro");
-        if(d.ok) document.getElementById("subEmail").value = "";
-      }).catch(function(){ msg.textContent = "erro de rede"; });
-  }
-  window.subscribe = subscribe;
-
-  /* ---- beacon de visita (não-bloqueante, mesma origem via rewrite Vercel) ---- */
-  try{ new Image().src = "/px.gif?p=" + encodeURIComponent(location.pathname) + "&r=" + encodeURIComponent(document.referrer || ""); }catch(e){}
-
-  /* ---- gating mobile: sem .exe no telemóvel → CTA "em breve" ---- */
-  var IS_MOBILE = window.matchMedia("(pointer:coarse)").matches || window.innerWidth < 760
-                  || /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent);
-  (function gate(){
-    var dl = document.getElementById("dl"), cs = document.getElementById("comingSoon");
-    if(IS_MOBILE){ if(dl) dl.style.display = "none"; if(cs) cs.style.display = "block"; }
-    else { if(dl) dl.style.display = ""; if(cs) cs.style.display = "none"; }
-  })();
-  function csNotify(){
-    var i = document.getElementById("csEmail"), msg = document.getElementById("csMsg");
-    var em = (i ? i.value : "").trim();
-    if(!em || em.indexOf("@") < 1){ if(msg) msg.textContent = "Escreve um email válido."; return; }
-    fetch(WK + "/klip/subscribe", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:em }) })
-      .then(function(r){ return r.json(); }).then(function(d){
-        if(msg) msg.textContent = d.ok ? "Obrigado ✓ avisamos-te no lançamento." : (d.error || "erro");
-        if(d.ok && i) i.value = "";
-      }).catch(function(){ if(msg) msg.textContent = "erro de rede"; });
-  }
-  window.csNotify = csNotify;
-
-  /* ---- navegação por secções (scroll-snap) — só desktop, respeita reduced-motion ---- */
-  (function dots(){
-    if(!window.matchMedia("(min-width:900px) and (pointer:fine)").matches) return;
-    if(window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    var panels = [];
-    document.querySelectorAll("main > section").forEach(function(s){ panels.push(s); });
-    document.querySelectorAll("body > section").forEach(function(s){ panels.push(s); });
-    if(panels.length < 2) return;
-    var LABELS = [["Início","Home"],["Funções","Features"],["Preços","Pricing"],["Integrações","Integrations"],["Versões","Versions"],["Descarregar","Download"],["Novidades","Updates"]];
-    document.body.classList.add("snapped");
-    var nav = document.getElementById("dotnav"); if(!nav) return;
-    panels.forEach(function(s, i){
-      s.classList.add("snap");
-      var lab = LABELS[i] || ["", ""];
+  /* ---------------- navegação por secções (scroll-snap, PC e telemóvel) ---------------- */
+  var PANELS = ["hero","impacto","cor","descarregar","versoes"];
+  var LABELS = { hero:["Início","Home"], impacto:["Motor 3D","3D engine"], cor:["Cor","Colour"],
+                 descarregar:["Descarregar","Download"], versoes:["Versões","Versions"],
+                 rodape:["Rodapé","Footer"] };
+  var nav = document.getElementById("dotnav");
+  var panels = [], dots = [];
+  (function dotsInit(){
+    if(!nav) return;
+    PANELS.forEach(function(id){ var el = document.getElementById(id); if(el) panels.push(el); });
+    var foot = document.querySelector("footer.screen"); if(foot) panels.push(foot);
+    if(panels.length < 2){ nav.style.display = "none"; return; }
+    panels.forEach(function(sec){
       var b = document.createElement("button");
-      var name = (document.documentElement.lang === "en" ? lab[1] : lab[0]) || ("secção " + (i + 1));
-      b.setAttribute("aria-label", name); b.title = name;
-      b.addEventListener("click", function(){ s.scrollIntoView({ behavior:"smooth", block:"start" }); });
-      nav.appendChild(b);
+      b.type = "button";
+      b.addEventListener("click", function(){ sec.scrollIntoView({ behavior:"smooth", block:"start" }); });
+      nav.appendChild(b); dots.push(b);
     });
-    var btns = nav.querySelectorAll("button");
     if("IntersectionObserver" in window){
       var io2 = new IntersectionObserver(function(es){
         es.forEach(function(e){
-          if(e.isIntersecting){ var idx = panels.indexOf(e.target);
-            btns.forEach(function(b, i){ b.setAttribute("aria-current", String(i === idx)); }); }
+          if(!e.isIntersecting) return;
+          var i = panels.indexOf(e.target);
+          dots.forEach(function(b, k){ b.setAttribute("aria-current", String(k === i)); });
+          nav.classList.toggle("on-dark", e.target.getAttribute("data-dark") === "1");
         });
-      }, { threshold:.5 });
+      }, { threshold:0, rootMargin:"-45% 0px -45% 0px" });   /* banda central: funciona mesmo se a secção for mais alta que o ecrã */
       panels.forEach(function(s){ io2.observe(s); });
     }
   })();
+  function labelDots(){
+    dots.forEach(function(b, i){
+      var id = panels[i] && panels[i].id ? panels[i].id : "rodape";
+      var pair = LABELS[id] || LABELS.rodape;
+      var name = (LANG === "en" ? pair[1] : pair[0]);
+      b.setAttribute("aria-label", name); b.title = name;
+    });
+  }
+
+  var saved = "pt";
+  try{ saved = localStorage.getItem("klip_lang") || (navigator.language || "pt").slice(0,2); }catch(e){}
+  setLang(saved === "en" ? "en" : "pt");
+
+  /* ---------------- reveal (só a descer, nunca re-anima) ---------------- */
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if("IntersectionObserver" in window && !reduce){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { threshold:.15, rootMargin:"0px 0px -5% 0px" });
+    document.querySelectorAll(".r").forEach(function(el){ io.observe(el); });
+  } else {
+    document.querySelectorAll(".r").forEach(function(el){ el.classList.add("in"); });
+  }
+
+  /* ---------------- hero: discovery-on-load sequencial ---------------- */
+  (function heroIn(){
+    var els = document.querySelectorAll(".hero .hu");
+    if(reduce){ els.forEach(function(el){ el.classList.add("show"); }); return; }
+    els.forEach(function(el, i){ setTimeout(function(){ el.classList.add("show"); }, 150 + i * 320); });
+  })();
+
+  /* ---------------- navbar: fundo só depois do topo ---------------- */
+  var hdr = document.getElementById("hdr");
+  function onScroll(){ if(hdr) hdr.classList.toggle("solid", window.scrollY > 12); }
+  window.addEventListener("scroll", onScroll, { passive:true }); onScroll();
+
+  /* ---------------- histórico de versões ---------------- */
+  fetch("/version.json").then(function(r){ return r.json(); }).then(function(v){
+    var host = document.getElementById("versionList"); if(!host) return;
+    (v.history || []).slice(0, 6).forEach(function(h){
+      var d = document.createElement("div"); d.className = "vrow";
+      var a = document.createElement("div"); a.className = "v";
+      a.innerHTML = "v" + h.version + " <span>· " + (h.date || "") + "</span>";
+      var c = document.createElement("code"); c.textContent = h.md5 || "—";
+      d.appendChild(a); d.appendChild(c); host.appendChild(d);
+    });
+  }).catch(function(){});
+
+  /* ---------------- nota do worker: só aparece se trouxer conteúdo ---------------- */
+  fetch(WK + "/klip/hero", { cache:"no-store" }).then(function(r){ return r.json(); }).then(function(d){
+    var el = document.getElementById("heroCustom"); if(!el) return;
+    var html = (d && typeof d.hero === "string") ? d.hero.trim() : "";
+    if(!html) return;
+    var probe = document.createElement("div"); probe.innerHTML = html;
+    var txt = (probe.textContent || "").replace(/\s+/g, " ").trim();
+    if(txt.length < 24 && !probe.querySelector("img,a")) return;   /* placeholder vazio → fica escondido */
+    el.innerHTML = html; el.style.display = "block";
+  }).catch(function(){});
+
+  /* ---------------- subscrição ---------------- */
+  function say(id, pt, en){ var m = document.getElementById(id); if(m) m.textContent = (LANG === "en" ? en : pt); }
+  function post(email, msgId, okPt, okEn){
+    fetch(WK + "/klip/subscribe", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:email }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        if(d && d.ok) say(msgId, okPt, okEn);
+        else say(msgId, (d && d.error) || "não foi possível", (d && d.error) || "could not subscribe");
+        return d && d.ok;
+      }).then(function(ok){
+        if(!ok) return;
+        var f = document.getElementById(msgId === "subMsg" ? "subEmail" : "csEmail"); if(f) f.value = "";
+      }).catch(function(){ say(msgId, "sem ligação", "no connection"); });
+  }
+  function subscribe(){
+    var v = (document.getElementById("subEmail") || {}).value || "";
+    v = v.trim();
+    if(v.indexOf("@") < 1){ say("subMsg", "email inválido", "invalid email"); return; }
+    post(v, "subMsg", "subscrito ✓", "subscribed ✓");
+  }
+  function csNotify(){
+    var v = (document.getElementById("csEmail") || {}).value || "";
+    v = v.trim();
+    if(v.indexOf("@") < 1){ say("csMsg", "email inválido", "invalid email"); return; }
+    post(v, "csMsg", "avisamos-te ✓", "we'll let you know ✓");
+  }
+  window.subscribe = subscribe;
+  window.csNotify = csNotify;
+
+  /* ---------------- beacon de visita ---------------- */
+  try{ new Image().src = "/px.gif?p=" + encodeURIComponent(location.pathname) + "&r=" + encodeURIComponent(document.referrer || ""); }catch(e){}
+
+  /* ---------------- telemóvel: sem .exe → "em breve" ---------------- */
+  (function gate(){
+    var isMobile = window.matchMedia("(pointer:coarse)").matches || window.innerWidth < 760
+                   || /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent);
+    var dl = document.getElementById("dl"), cs = document.getElementById("comingSoon");
+    if(isMobile){
+      if(dl && dl.parentNode) dl.parentNode.style.display = "none";
+      if(cs) cs.style.display = "flex";
+    } else {
+      if(dl && dl.parentNode) dl.parentNode.style.display = "";
+      if(cs) cs.style.display = "none";
+    }
+  })();
+</script>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"KLIP Animator","applicationCategory":"DesignApplication","operatingSystem":"Windows 10, Windows 11","softwareVersion":"1.1.0","publisher":{"@type":"Organization","name":"Ferreira Korp"}}
 </script>
 </body>
 </html>

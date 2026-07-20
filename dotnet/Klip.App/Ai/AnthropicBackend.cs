@@ -57,6 +57,7 @@ public sealed class AnthropicBackend
         "visualmente uma peça (render_frame + olhar + crítica curta) ENQUANTO tu constróis a próxima; incorpora o " +
         "feedback deles. Isto acelera muito a iteração. Tu és o compositor-chefe; eles são os olhos extra.\n" +
         "· EXPORT: 60fps; `export_animation resolution:4k` para entrega final (vetorial, nítido a 4K).\n\n" +
+        ModelSkills.Modelacao + "\n\n" +
         "SKILLS EMBUTIDAS (segue estas receitas de craft profissional):\n" +
         "· EDITAR 3D, NUNCA REFAZER: se o utilizador pedir uma ALTERAÇÃO a um objeto que tu modelaste " +
         "(«mais alto», «cantos mais afiados», «passa a cobre»), usa blender_edit — abre o .blend guardado com os " +

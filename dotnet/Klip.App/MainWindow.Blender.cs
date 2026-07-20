@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using Avalonia.Controls;
 using Klip.Engine.Blender;
 
@@ -188,6 +189,37 @@ print('KLIP GLB ->', _out)
         {
             ok = true, id = layer.Name, mesh = obj, source = blend,
             kb, seconds = Math.Round(sw.Elapsed.TotalSeconds, 2),
+        };
+    }
+
+    /// <summary>
+    /// inspect_mesh: mede a topologia da malha de uma camada e devolve NÚMEROS.
+    /// Existe para tirar a modelação do campo da opinião — ou a peça tem quads, sem ngons e sem
+    /// pólos, ou não tem, e nesse caso diz-se o que corrigir.
+    /// </summary>
+    public object ApiInspectMesh(string id)
+    {
+        var layer = Sel(id);
+        var blend = layer.ThreeD?.SourceBlend;
+        if (string.IsNullOrWhiteSpace(blend) || !System.IO.File.Exists(blend))
+            throw new InvalidOperationException(
+                $"a camada «{layer.Name}» não tem fonte .blend, e um .glb não serve para medir topologia: " +
+                "vem triangulado e com os modificadores já aplicados, portanto mediria a malha de exportação " +
+                "e não a que se pode editar.");
+
+        var r = Klip.Engine.Blender.MeshInspect.Inspecionar(blend!);
+        return new
+        {
+            ok = true,
+            id = layer.Name,
+            objetos = r.Select(o => new
+            {
+                o.Objeto, o.Faces, quads = o.Quads, tris = o.Tris, ngons = o.Ngons,
+                quad_pct = o.QuadPct, polos_6plus = o.PolosGrandes,
+                duplicados = o.Duplicados, area_nula = o.AreaNula,
+                subsurf = o.TemSubsurf ? $"{o.SubsurfViewport}/{o.SubsurfRender}" : "nenhum",
+                suave = o.Suave, veredicto = o.Veredicto, reparos = o.Reparos,
+            }).ToArray(),
         };
     }
 
