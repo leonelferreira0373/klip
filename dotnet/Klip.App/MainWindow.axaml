@@ -344,6 +344,16 @@
                                 Content="✕" Click="OnDeleteGuide" ToolTip.Tip="Apagar guia"/>
                     </Canvas>
 
+                    <!-- BARRA CONTEXTUAL (estilo Canva): flutua no topo da tela e muda com a seleção.
+                         Conteúdo construído em código — ver MainWindow.Toolbar.cs -->
+                    <Border x:Name="CtxBar" VerticalAlignment="Top" HorizontalAlignment="Center"
+                            Margin="0,10,0,0" Padding="8,5" IsVisible="False"
+                            Background="#FFFFFE" BorderBrush="#E4E4E1" BorderThickness="1"
+                            CornerRadius="12" BoxShadow="0 6 20 0 #14000000">
+                        <StackPanel x:Name="CtxStack" Orientation="Horizontal" Spacing="4"
+                                    VerticalAlignment="Center"/>
+                    </Border>
+
                     <!-- CHAT flutuante, arredondado, sobre o canvas -->
                     <Border x:Name="ChatCard" Width="560" VerticalAlignment="Bottom" HorizontalAlignment="Center"
                             Margin="0,0,0,16" Background="#FFFFFE" BorderBrush="#E4E4E1" BorderThickness="1"

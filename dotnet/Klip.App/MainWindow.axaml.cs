@@ -2477,6 +2477,7 @@ public partial class MainWindow : Window
     private void UpdateInspector()
     {
         Sync3DPanel();                    // painel 3D acompanha a seleção/tempo
+        SyncCtxBar();                     // barra contextual (Canva) reflete o que está selecionado
         if (_selected < 0) { Inspector.Text = "(clica num objeto; arrasta p/ mover; pega no canto p/ escalar)"; return; }
         var l = _layers[_selected];
         Inspector.Text = $"{l.Name}\nx {(l.PosX?.Eval(0) ?? 0):0}   y {(l.PosY?.Eval(0) ?? 0):0}\n" +
