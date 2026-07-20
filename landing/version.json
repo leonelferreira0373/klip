@@ -2,16 +2,16 @@
   "latest": {
     "version": "1.1.0",
     "date": "2026-07-20",
-    "md5": "4817260d1a0842082fa9116abf0f3fb0",
-    "notes": "Materiais completos na importacao 3D (relevo, metalico-rugosidade, emissao, translucidez). Texturas assadas na exportacao: os materiais procedurais do Blender deixam de se perder. Editar objectos 3D por palavras. Gradientes multi-stop e livros PANTONE ate ao CMYK. Video 4K com som. Imagens no chat separadas da tela. Topologia medida com inspect_mesh.",
+    "md5": "5377f31a32a85704f518c868473c27d3",
+    "notes": "Materiais completos na importacao 3D: relevo, metalico-rugosidade, emissao e translucidez deixam de se perder. Texturas assadas na exportacao, para os materiais procedurais do Blender chegarem intactos. Editar objectos 3D por palavras sem os refazer. Topologia medida com inspect_mesh. Gradientes multi-stop e livros PANTONE ate ao CMYK. Video 4K com som. Imagens no chat separadas da tela.",
     "url": "https://github.com/leonelferreira0373/klip/releases/latest/download/KLIP-Animator.exe"
   },
   "history": [
     {
       "version": "1.1.0",
       "date": "2026-07-20",
-      "md5": "4817260d1a0842082fa9116abf0f3fb0",
-      "notes": "Materiais completos na importacao 3D (relevo, metalico-rugosidade, emissao, translucidez). Texturas assadas na exportacao: os materiais procedurais do Blender deixam de se perder. Editar objectos 3D por palavras. Gradientes multi-stop e livros PANTONE ate ao CMYK. Video 4K com som. Imagens no chat separadas da tela. Topologia medida com inspect_mesh."
+      "md5": "5377f31a32a85704f518c868473c27d3",
+      "notes": "Materiais completos na importacao 3D: relevo, metalico-rugosidade, emissao e translucidez deixam de se perder. Texturas assadas na exportacao, para os materiais procedurais do Blender chegarem intactos. Editar objectos 3D por palavras sem os refazer. Topologia medida com inspect_mesh. Gradientes multi-stop e livros PANTONE ate ao CMYK. Video 4K com som. Imagens no chat separadas da tela."
     },
     {
       "version": "1.0.5",
