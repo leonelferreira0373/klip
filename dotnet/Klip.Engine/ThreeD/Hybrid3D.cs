@@ -172,7 +172,10 @@ public static class Hybrid3D
 
         // modelo: escala da camada → rotação Y (track Rotation) → posição (px→mundo, Y invertido)
         const double Deg = Math.PI / 180.0;
-        float rotY = (float)((layer.Rotation?.Eval(t) ?? 0) * Deg);   // turn (yaw)
+        // YAW: RotationY manda, com o Rotation 2D como reserva. Antes lia-se SÓ o Rotation — e como
+        // o anel verde do gizmo e o slider "Rot Y" escrevem em RotationY, rodar em Y não fazia
+        // absolutamente nada num objeto 3D. Os anéis X e Z funcionavam, o do meio não.
+        float rotY = (float)(((layer.RotationY?.Eval(t) ?? layer.Rotation?.Eval(t)) ?? 0) * Deg);
         float rotX = (float)((layer.RotationX?.Eval(t) ?? 0) * Deg);  // pitch (inclinar)
         float rotZ = (float)((layer.RotationZ?.Eval(t) ?? 0) * Deg);  // roll (leque)
         float s = (float)(layer.Scale?.Eval(t) ?? 1.0);
