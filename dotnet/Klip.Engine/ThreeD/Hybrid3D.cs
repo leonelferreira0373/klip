@@ -129,7 +129,12 @@ public static class Hybrid3D
             if (useMesh)
             {
                 // OBJETO REAL importado — nada de extrusão. A malha já vem normalizada p/ 1 unidade.
-                var (data0, count0) = ObjMesh.Load(spec.MeshPath!);
+                // .glb traz o material junto (é o que faz o objeto chegar com o aspeto que tinha
+                // no Blender); .obj é o caminho pobre, fica como reserva.
+                var ext = System.IO.Path.GetExtension(spec.MeshPath!).ToLowerInvariant();
+                float[] data0; int count0;
+                if (ext is ".glb" or ".gltf") { var g = GltfMesh.Load(spec.MeshPath!); data0 = g.data; count0 = g.count; }
+                else { var o = ObjMesh.Load(spec.MeshPath!); data0 = o.data; count0 = o.count; }
                 if (count0 == 0) return null;
                 m = (key, data0, count0);
             }

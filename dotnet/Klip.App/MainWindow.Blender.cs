@@ -26,42 +26,70 @@ public partial class MainWindow : Window
 
         var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "klip_meshes");
         System.IO.Directory.CreateDirectory(dir);
-        var obj = System.IO.Path.Combine(dir, "klip_" + Guid.NewGuid().ToString("N")[..10] + ".obj");
+        var stem = "klip_" + Guid.NewGuid().ToString("N")[..10];
+        var obj = System.IO.Path.Combine(dir, stem + ".glb");
+        var blend = System.IO.Path.Combine(dir, stem + ".blend");
 
-        // O script do utilizador só CONSTRÓI. A exportação é nossa — assim a IA não precisa de
-        // saber o nome do operador (que muda entre versões do Blender) e nunca se esquece dela.
-        // apply_modifiers=True: o ARRAY/SUBSURF/BEVEL vêm cozidos, senão chegava cá a malha-base nua.
+        // O script do utilizador só CONSTRÓI. A exportação é nossa — a IA não precisa de saber o
+        // nome do operador (muda entre versões) e nunca se esquece dela.
+        //
+        // GLB, NÃO OBJ: o OBJ só traz triângulos e UVs — perde materiais, hierarquia e cores de
+        // vértice, e por isso a malha chegava cá cinzenta. O glTF atravessa com o PBR intacto.
+        // E gravamos o .blend ao lado: é a FONTE, o único ficheiro que não perde nada, e é o que
+        // permite voltar a mexer no objeto em vez de o refazer do zero.
         var full = script + @"
 
-# ---- KLIP: exportar a malha para o editor ----
+# ---- KLIP: guardar a fonte e exportar a malha para o editor ----
 import bpy as _bpy, sys as _sys
-_out = _sys.argv[_sys.argv.index('--') + 1:][0]
+_args = _sys.argv[_sys.argv.index('--') + 1:]
+_out, _blend = _args[0], _args[1]
+try:
+    _bpy.ops.wm.save_as_mainfile(filepath=_blend)     # a FONTE, sem perdas
+except Exception as _e:
+    print('KLIP: .blend nao gravou:', _e)
 try:
     _bpy.ops.object.select_all(action='SELECT')
 except Exception:
     pass
-_bpy.ops.wm.obj_export(filepath=_out, export_triangulated_mesh=True,
-                       export_materials=False, apply_modifiers=True)
-print('KLIP OBJ ->', _out)
+_bpy.ops.export_scene.gltf(filepath=_out, export_format='GLB',
+                           export_apply=True, export_materials='EXPORT',
+                           export_normals=True, export_yup=False)
+print('KLIP GLB ->', _out)
 ";
         UiChat("·", $"Blender {BlenderBridge.Version} a modelar…");
         var sw = Stopwatch.StartNew();
-        var r = BlenderBridge.RunScript(full, new[] { obj },
+        var r = BlenderBridge.RunScript(full, new[] { obj, blend },
             TimeSpan.FromSeconds(Math.Clamp(timeoutSec ?? 600, 5, 7200)),
-            line => { if (line.Contains("KLIP OBJ")) UiChat("·", "malha exportada"); });
+            line => { if (line.Contains("KLIP GLB")) UiChat("·", "malha exportada"); });
         sw.Stop();
 
         if (!System.IO.File.Exists(obj) || new System.IO.FileInfo(obj).Length == 0)
             throw new InvalidOperationException("o Blender não exportou malha nenhuma.\n" + r.ErrorTail(600));
 
-        var id = Avalonia.Threading.Dispatcher.UIThread.Invoke(() => AddMeshLayer(obj, name));
+        // o material vem no .glb — lemo-lo aqui para a camada nascer com o aspeto que tinha lá dentro
+        uint baseArgb = 0xFFBDBDC6; double metal = 0.0, rough = 0.4;
+        try
+        {
+            var g = Klip.Engine.ThreeD.GltfMesh.Load(obj);
+            baseArgb = g.pbr.BaseArgb; metal = g.pbr.Metal; rough = Math.Clamp(g.pbr.Rough, 0.04, 1.0);
+        }
+        catch { /* sem material no ficheiro → fica o cinzento neutro */ }
+
+        var id = Avalonia.Threading.Dispatcher.UIThread.Invoke(
+            () => AddMeshLayer(obj, blend, name, baseArgb, rough, metal));
         long kb = new System.IO.FileInfo(obj).Length / 1024;
         UiChat("·", $"objeto 3D na cena: {id} ({kb} KB) em {sw.Elapsed.TotalSeconds:0.0}s");
-        return new { ok = true, id, mesh = obj, kb, seconds = Math.Round(sw.Elapsed.TotalSeconds, 2) };
+        return new
+        {
+            ok = true, id, mesh = obj,
+            source = System.IO.File.Exists(blend) ? blend : null,   // a FONTE, para voltar a mexer
+            kb, seconds = Math.Round(sw.Elapsed.TotalSeconds, 2),
+        };
     }
 
-    /// <summary>Cria a camada que segura a malha. O Shape fica como caixa de seleção no canvas 2D.</summary>
-    private string AddMeshLayer(string objPath, string? name)
+    /// <summary>Cria a camada que segura a malha, já com o material que veio do .glb.</summary>
+    private string AddMeshLayer(string meshPath, string blendPath, string? name,
+                                uint argb, double rough, double metal)
     {
         string id = (string.IsNullOrWhiteSpace(name) ? "objeto" : name!.Trim()) + "-" + _nameSeq++;
         Mutate(() =>
@@ -69,9 +97,10 @@ print('KLIP OBJ ->', _out)
             _layers.Add(new Klip.Model.Layer(
                 id,
                 Klip.Model.MorphTrack.Static(Klip.Engine.Shapes.Rect(220, 220)),
-                0xFFBDBDC6,
+                argb,
                 Scale: Klip.Model.Track.Const(1.0),
-                ThreeD: new Klip.Model.Extrude3D(Rough: 0.35, Metal: 0.0, MeshPath: objPath)));
+                ThreeD: new Klip.Model.Extrude3D(Rough: rough, Metal: metal, MeshPath: meshPath,
+                                                 SourceBlend: System.IO.File.Exists(blendPath) ? blendPath : null)));
             _selected = _layers.Count - 1;
         });
         return id;

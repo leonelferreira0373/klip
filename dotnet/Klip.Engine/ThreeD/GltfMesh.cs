@@ -1,0 +1,309 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Numerics;
+using System.Text;
+using System.Text.Json;
+
+namespace Klip.Engine.ThreeD;
+
+/// <summary>
+/// Leitor de glTF binário (.glb) → o formato de vértice do MeshPass [px,py,pz, nx,ny,nz, u,v]
+/// MAIS o material PBR (cor base, metal, aspereza).
+///
+/// PORQUÊ NÃO OBJ: o OBJ é o formato mais pobre que existe — só triângulos e UVs. Perde materiais,
+/// hierarquia, cores de vértice e UVs múltiplos, e obriga a achatar tudo antes de sair. O glTF
+/// atravessa a fronteira Blender→KLIP com o material intacto, que é o que faz o objeto chegar
+/// com o aspeto que tinha lá dentro em vez de cinzento.
+/// </summary>
+public static class GltfMesh
+{
+    public readonly record struct Pbr(uint BaseArgb, float Metal, float Rough);
+
+    private static readonly Dictionary<string, (float[] data, int count, Pbr pbr)> _cache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public static (float[] data, int count, Pbr pbr) Load(string path)
+    {
+        path = Path.GetFullPath(path);
+        var key = path + "|" + (File.Exists(path) ? File.GetLastWriteTimeUtc(path).Ticks : 0);
+        if (_cache.TryGetValue(key, out var hit)) return hit;
+
+        var bytes = File.ReadAllBytes(path);
+        var (json, bin) = SplitGlb(bytes);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var verts = new List<float>(1 << 16);
+        var pbr = new Pbr(0xFFBDBDC6, 0f, 0.4f);
+        bool gotPbr = false;
+
+        var accessors = Arr(root, "accessors");
+        var views = Arr(root, "bufferViews");
+        var meshes = Arr(root, "meshes");
+        var nodes = Arr(root, "nodes");
+        var materials = Arr(root, "materials");
+
+        // percorrer a árvore de nós para APLICAR as transformações — sem isto, partes
+        // posicionadas por hierarquia (parafusos num array, por ex.) aterram todas na origem.
+        void Walk(int nodeIx, Matrix4x4 parent)
+        {
+            if (nodeIx < 0 || nodeIx >= nodes.Count) return;
+            var n = nodes[nodeIx];
+            var local = NodeMatrix(n);
+            var world = local * parent;
+
+            if (n.TryGetProperty("mesh", out var mi) && mi.TryGetInt32(out int meshIx)
+                && meshIx >= 0 && meshIx < meshes.Count)
+            {
+                foreach (var prim in EnumArr(meshes[meshIx], "primitives"))
+                {
+                    if (prim.TryGetProperty("mode", out var md) && md.TryGetInt32(out int mode) && mode != 4)
+                        continue;    // só triângulos
+                    if (!prim.TryGetProperty("attributes", out var at)) continue;
+
+                    var pos = ReadVec3(at, "POSITION", accessors, views, bin);
+                    if (pos.Count == 0) continue;
+                    var nor = ReadVec3(at, "NORMAL", accessors, views, bin);
+                    var uv = ReadVec2(at, "TEXCOORD_0", accessors, views, bin);
+                    var idx = prim.TryGetProperty("indices", out var ii) && ii.TryGetInt32(out int ia)
+                        ? ReadIndices(ia, accessors, views, bin)
+                        : SeqIndices(pos.Count);
+
+                    if (!gotPbr && prim.TryGetProperty("material", out var pm) && pm.TryGetInt32(out int mIx)
+                        && mIx >= 0 && mIx < materials.Count)
+                    { pbr = ReadPbr(materials[mIx]); gotPbr = true; }
+
+                    var nrmMat = Normal3x3(world);
+                    for (int t = 0; t + 2 < idx.Count; t += 3)
+                    {
+                        // normal de face para quando o ficheiro não traz normais
+                        Vector3 fa = Vector3.Transform(pos[idx[t]], world);
+                        Vector3 fb = Vector3.Transform(pos[idx[t + 1]], world);
+                        Vector3 fc = Vector3.Transform(pos[idx[t + 2]], world);
+                        var cr = Vector3.Cross(fb - fa, fc - fa);
+                        var fn = cr.LengthSquared() < 1e-14f ? Vector3.UnitZ : Vector3.Normalize(cr);
+
+                        for (int k = 0; k < 3; k++)
+                        {
+                            int vi = idx[t + k];
+                            var p = Vector3.Transform(pos[vi], world);
+                            var nv = vi < nor.Count ? Vector3.TransformNormal(nor[vi], nrmMat) : fn;
+                            if (nv.LengthSquared() > 1e-12f) nv = Vector3.Normalize(nv); else nv = fn;
+                            var t2 = vi < uv.Count ? uv[vi] : Vector2.Zero;
+                            verts.Add(p.X); verts.Add(p.Y); verts.Add(p.Z);
+                            verts.Add(nv.X); verts.Add(nv.Y); verts.Add(nv.Z);
+                            verts.Add(t2.X); verts.Add(1f - t2.Y);
+                        }
+                    }
+                }
+            }
+            foreach (var c in EnumArr(n, "children"))
+                if (c.TryGetInt32(out int ci)) Walk(ci, world);
+        }
+
+        // arrancar pelas raízes da cena; se não houver cena declarada, por todos os nós
+        bool walked = false;
+        if (root.TryGetProperty("scenes", out var scenes) && scenes.ValueKind == JsonValueKind.Array)
+        {
+            int sIx = root.TryGetProperty("scene", out var sc) && sc.TryGetInt32(out int si) ? si : 0;
+            var list = Arr(root, "scenes");
+            if (sIx >= 0 && sIx < list.Count)
+                foreach (var r in EnumArr(list[sIx], "nodes"))
+                    if (r.TryGetInt32(out int ri)) { Walk(ri, Matrix4x4.Identity); walked = true; }
+        }
+        if (!walked) for (int i = 0; i < nodes.Count; i++) Walk(i, Matrix4x4.Identity);
+
+        var arr = verts.ToArray();
+        Normalize(arr);
+        var res = (arr, arr.Length / 8, pbr);
+        _cache[key] = res;
+        return res;
+    }
+
+    // ---------------- glb ----------------
+    private static (byte[] json, byte[] bin) SplitGlb(byte[] b)
+    {
+        if (b.Length < 12 || BitConverter.ToUInt32(b, 0) != 0x46546C67u)
+            throw new InvalidOperationException("não é um .glb (magic errado)");
+        int off = 12; byte[] json = Array.Empty<byte>(), bin = Array.Empty<byte>();
+        while (off + 8 <= b.Length)
+        {
+            int len = BitConverter.ToInt32(b, off);
+            uint type = BitConverter.ToUInt32(b, off + 4);
+            int start = off + 8;
+            if (len < 0 || start + len > b.Length) break;
+            if (type == 0x4E4F534A) json = b[start..(start + len)];        // JSON
+            else if (type == 0x004E4942) bin = b[start..(start + len)];    // BIN
+            off = start + len + ((4 - len % 4) % 4);
+        }
+        if (json.Length == 0) throw new InvalidOperationException("glb sem bloco JSON");
+        return (json, bin);
+    }
+
+    private static List<JsonElement> Arr(JsonElement e, string name)
+    {
+        var l = new List<JsonElement>();
+        if (e.TryGetProperty(name, out var a) && a.ValueKind == JsonValueKind.Array)
+            foreach (var x in a.EnumerateArray()) l.Add(x);
+        return l;
+    }
+    private static IEnumerable<JsonElement> EnumArr(JsonElement e, string name)
+    {
+        if (e.TryGetProperty(name, out var a) && a.ValueKind == JsonValueKind.Array)
+            foreach (var x in a.EnumerateArray()) yield return x;
+    }
+
+    private static Matrix4x4 NodeMatrix(JsonElement n)
+    {
+        if (n.TryGetProperty("matrix", out var m) && m.ValueKind == JsonValueKind.Array)
+        {
+            var v = new float[16]; int i = 0;
+            foreach (var x in m.EnumerateArray()) { if (i < 16) v[i++] = x.GetSingle(); }
+            return new Matrix4x4(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7],
+                                 v[8], v[9], v[10], v[11], v[12], v[13], v[14], v[15]);
+        }
+        var s = Vector3.One; var t = Vector3.Zero; var q = Quaternion.Identity;
+        if (n.TryGetProperty("scale", out var se)) s = V3(se, Vector3.One);
+        if (n.TryGetProperty("translation", out var te)) t = V3(te, Vector3.Zero);
+        if (n.TryGetProperty("rotation", out var re) && re.ValueKind == JsonValueKind.Array)
+        {
+            var v = new float[4]; int i = 0;
+            foreach (var x in re.EnumerateArray()) { if (i < 4) v[i++] = x.GetSingle(); }
+            q = new Quaternion(v[0], v[1], v[2], v[3]);
+        }
+        return Matrix4x4.CreateScale(s) * Matrix4x4.CreateFromQuaternion(q) * Matrix4x4.CreateTranslation(t);
+    }
+
+    private static Vector3 V3(JsonElement e, Vector3 def)
+    {
+        if (e.ValueKind != JsonValueKind.Array) return def;
+        var v = new float[3]; int i = 0;
+        foreach (var x in e.EnumerateArray()) { if (i < 3) v[i++] = x.GetSingle(); }
+        return new Vector3(v[0], v[1], v[2]);
+    }
+
+    private static Matrix4x4 Normal3x3(Matrix4x4 m)
+        => Matrix4x4.Invert(m, out var inv) ? Matrix4x4.Transpose(inv) : m;
+
+    // ---------------- accessors ----------------
+    private static (int off, int stride, int count, int comp) Info(
+        int accIx, List<JsonElement> accessors, List<JsonElement> views, out int compType)
+    {
+        compType = 5126;
+        if (accIx < 0 || accIx >= accessors.Count) return (0, 0, 0, 0);
+        var a = accessors[accIx];
+        int count = a.TryGetProperty("count", out var c) ? c.GetInt32() : 0;
+        compType = a.TryGetProperty("componentType", out var ct) ? ct.GetInt32() : 5126;
+        string type = a.TryGetProperty("type", out var ty) ? (ty.GetString() ?? "SCALAR") : "SCALAR";
+        int comp = type switch { "SCALAR" => 1, "VEC2" => 2, "VEC3" => 3, "VEC4" => 4, "MAT4" => 16, _ => 1 };
+        int accOff = a.TryGetProperty("byteOffset", out var ao) ? ao.GetInt32() : 0;
+        int vIx = a.TryGetProperty("bufferView", out var bv) ? bv.GetInt32() : -1;
+        int vOff = 0, stride = 0;
+        if (vIx >= 0 && vIx < views.Count)
+        {
+            var v = views[vIx];
+            vOff = v.TryGetProperty("byteOffset", out var vo) ? vo.GetInt32() : 0;
+            stride = v.TryGetProperty("byteStride", out var bs) ? bs.GetInt32() : 0;
+        }
+        int elemSize = comp * (compType switch { 5120 or 5121 => 1, 5122 or 5123 => 2, _ => 4 });
+        if (stride == 0) stride = elemSize;
+        return (vOff + accOff, stride, count, comp);
+    }
+
+    private static List<Vector3> ReadVec3(JsonElement attrs, string name,
+        List<JsonElement> acc, List<JsonElement> views, byte[] bin)
+    {
+        var r = new List<Vector3>();
+        if (!attrs.TryGetProperty(name, out var e) || !e.TryGetInt32(out int ix)) return r;
+        var (off, stride, count, _) = Info(ix, acc, views, out _);
+        for (int i = 0; i < count; i++)
+        {
+            int p = off + i * stride;
+            if (p + 12 > bin.Length) break;
+            r.Add(new Vector3(BitConverter.ToSingle(bin, p), BitConverter.ToSingle(bin, p + 4),
+                              BitConverter.ToSingle(bin, p + 8)));
+        }
+        return r;
+    }
+
+    private static List<Vector2> ReadVec2(JsonElement attrs, string name,
+        List<JsonElement> acc, List<JsonElement> views, byte[] bin)
+    {
+        var r = new List<Vector2>();
+        if (!attrs.TryGetProperty(name, out var e) || !e.TryGetInt32(out int ix)) return r;
+        var (off, stride, count, _) = Info(ix, acc, views, out int ct);
+        for (int i = 0; i < count; i++)
+        {
+            int p = off + i * stride;
+            if (p + 8 > bin.Length) break;
+            r.Add(ct == 5126
+                ? new Vector2(BitConverter.ToSingle(bin, p), BitConverter.ToSingle(bin, p + 4))
+                : new Vector2(BitConverter.ToUInt16(bin, p) / 65535f, BitConverter.ToUInt16(bin, p + 2) / 65535f));
+        }
+        return r;
+    }
+
+    private static List<int> ReadIndices(int ix, List<JsonElement> acc, List<JsonElement> views, byte[] bin)
+    {
+        var r = new List<int>();
+        var (off, stride, count, _) = Info(ix, acc, views, out int ct);
+        for (int i = 0; i < count; i++)
+        {
+            int p = off + i * stride;
+            if (p + 1 > bin.Length) break;
+            r.Add(ct switch
+            {
+                5121 => bin[p],
+                5123 => p + 2 <= bin.Length ? BitConverter.ToUInt16(bin, p) : 0,
+                _ => p + 4 <= bin.Length ? BitConverter.ToInt32(bin, p) : 0,
+            });
+        }
+        return r;
+    }
+
+    private static List<int> SeqIndices(int n)
+    { var r = new List<int>(n); for (int i = 0; i < n; i++) r.Add(i); return r; }
+
+    private static Pbr ReadPbr(JsonElement mat)
+    {
+        uint argb = 0xFFBDBDC6; float metal = 0f, rough = 0.4f;
+        if (mat.TryGetProperty("pbrMetallicRoughness", out var p))
+        {
+            if (p.TryGetProperty("baseColorFactor", out var bc) && bc.ValueKind == JsonValueKind.Array)
+            {
+                var v = new float[4] { 1, 1, 1, 1 }; int i = 0;
+                foreach (var x in bc.EnumerateArray()) { if (i < 4) v[i++] = x.GetSingle(); }
+                // glTF entrega linear; o KLIP pinta em sRGB
+                static byte S(float lin)
+                {
+                    float c = lin <= 0.0031308f ? lin * 12.92f : 1.055f * MathF.Pow(MathF.Max(lin, 0f), 1f / 2.4f) - 0.055f;
+                    return (byte)Math.Clamp(c * 255f + 0.5f, 0, 255);
+                }
+                argb = 0xFF000000u | ((uint)S(v[0]) << 16) | ((uint)S(v[1]) << 8) | S(v[2]);
+            }
+            if (p.TryGetProperty("metallicFactor", out var mf)) metal = mf.GetSingle();
+            if (p.TryGetProperty("roughnessFactor", out var rf)) rough = rf.GetSingle();
+        }
+        return new Pbr(argb, metal, rough);
+    }
+
+    /// <summary>Centra e escala para a maior dimensão valer 1 — cabe sempre no mundo do KLIP.</summary>
+    private static void Normalize(float[] v)
+    {
+        if (v.Length == 0) return;
+        float minX = float.MaxValue, minY = float.MaxValue, minZ = float.MaxValue;
+        float maxX = float.MinValue, maxY = float.MinValue, maxZ = float.MinValue;
+        for (int i = 0; i < v.Length; i += 8)
+        {
+            if (v[i] < minX) minX = v[i];         if (v[i] > maxX) maxX = v[i];
+            if (v[i + 1] < minY) minY = v[i + 1]; if (v[i + 1] > maxY) maxY = v[i + 1];
+            if (v[i + 2] < minZ) minZ = v[i + 2]; if (v[i + 2] > maxZ) maxZ = v[i + 2];
+        }
+        float cx = (minX + maxX) * .5f, cy = (minY + maxY) * .5f, cz = (minZ + maxZ) * .5f;
+        float span = MathF.Max(maxX - minX, MathF.Max(maxY - minY, maxZ - minZ));
+        float k = span > 1e-6f ? 1f / span : 1f;
+        for (int i = 0; i < v.Length; i += 8)
+        { v[i] = (v[i] - cx) * k; v[i + 1] = (v[i + 1] - cy) * k; v[i + 2] = (v[i + 2] - cz) * k; }
+    }
+}

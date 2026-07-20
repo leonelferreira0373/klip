@@ -295,7 +295,11 @@ public sealed record Extrude3D(double Depth = 0.5, double Bevel = 0.07,
                                // MALHA REAL: se definido, a camada deixa de ser extrusão de um path 2D
                                // e passa a ser um OBJETO 3D importado (.obj) — rodável e animável como
                                // qualquer outra camada. É o que traz o Blender para dentro da cena.
-                               string? MeshPath = null);
+                               string? MeshPath = null,
+                               // A FONTE (.blend). O .glb é o que se desenha; o .blend é o que NÃO
+                               // perde nada — é o que permite voltar a mexer no objeto (mudar o
+                               // número de pás, afiar cantos) em vez de o refazer do zero.
+                               string? SourceBlend = null);
 
 /// <summary>Câmara 3D REAL e animável do comp — posição, alvo e FOV são Tracks keyframáveis.
 /// Defaults: eye (0,0,5.2), target (0,0,0), fov 34°.</summary>
