@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using Klip.Engine.Audio;
 using Klip.Model;
 using SkiaSharp;
 
@@ -20,9 +21,34 @@ public static class Mp4Exporter
         int outW = Math.Max(2, (int)Math.Round(comp.Width * scale) & ~1);
         int outH = Math.Max(2, (int)Math.Round(comp.Height * scale) & ~1);
 
+        // ÁUDIO: o DAW existia mas os vídeos saíam mudos. A mistura da timeline inteira vai para um WAV
+        // temporário e entra como 2ª entrada do ffmpeg — é a MESMA mistura que se ouve no preview, portanto
+        // o que se exporta é exatamente o que se ouviu.
+        string? wav = null;
+        try
+        {
+            if (comp.Audio is { Count: > 0 })
+            {
+                var mix = AudioMixer.Mix(comp.Audio, comp.Duration);
+                if (mix.Samples.Length > 0)
+                {
+                    wav = Path.Combine(Path.GetTempPath(), "klip_mux_" + Guid.NewGuid().ToString("N") + ".wav");
+                    AudioMixer.WriteWav(mix, wav);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // som falhado não pode matar o export do vídeo — melhor mudo do que nada
+            wav = null;
+            Console.Error.WriteLine("KLIP: mistura de áudio falhou, exporto mudo: " + ex.Message);
+        }
+
         string args =
             $"-y -f rawvideo -pixel_format rgba -video_size {outW}x{outH} " +
-            $"-framerate {fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 17 -movflags +faststart \"{outPath}\"";
+            $"-framerate {fps} -i - " +
+            (wav is null ? "" : $"-i \"{wav}\" -c:a aac -b:a 192k -shortest ") +
+            $"-c:v libx264 -pix_fmt yuv420p -crf 17 -movflags +faststart \"{outPath}\"";
 
         var psi = new ProcessStartInfo(ffmpeg, args)
         {
@@ -46,6 +72,7 @@ public static class Mp4Exporter
         stdin.Flush();
         stdin.Close();
         proc.WaitForExit();
+        if (wav is not null) { try { File.Delete(wav); } catch { } }
     }
 
     /// <summary>Generic export: pull each frame from a render function → H.264 MP4.</summary>
