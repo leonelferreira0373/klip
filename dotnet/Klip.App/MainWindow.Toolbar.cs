@@ -141,7 +141,12 @@ public partial class MainWindow : Window
         return b;
     }
 
-    /// <summary>Botão de cor: mostra a cor atual e abre um flyout de amostras.</summary>
+    /// <summary>
+    /// Botão de cor: mostra a cor atual e abre o SELETOR A SÉRIO — quadrado saturação/valor, tira de
+    /// matiz, alfa, caixa de hex e acesso aos livros de cor (PANTONE, HKS, TOYO…).
+    /// Antes abria uma grelha de 10 amostras fixas, o que tornava as paletas profissionais inúteis:
+    /// estavam lá dentro mas não havia por onde lhes chegar.
+    /// </summary>
     private Control ColorButton(string label, uint argb, Action<uint> pick)
     {
         var swatch = new Border
@@ -157,20 +162,23 @@ public partial class MainWindow : Window
         var btn = BaseBtn("", label);
         btn.Content = content;
 
-        var grid = new Avalonia.Controls.Primitives.UniformGrid { Columns = 5, Width = 150, Margin = new Thickness(4) };
-        foreach (var c in CtxSwatches)
+        // O conteúdo é criado a cada abertura, e não uma vez: o seletor nasce com a cor ACTUAL da
+        // camada, e essa muda entre aberturas.
+        var flyout = new Flyout { Placement = PlacementMode.Bottom };
+        flyout.Opening += (_, _) =>
         {
-            var cell = new Button
+            uint agora = _selected >= 0 && _selected < _layers.Count
+                ? (label == "Contorno"
+                    ? (_layers[_selected].StrokeArgb ?? argb)
+                    : (_layers[_selected].FillColor?.Eval(_previewT) ?? _layers[_selected].FillArgb))
+                : argb;
+            flyout.Content = ColorFlyout(agora, c =>
             {
-                Width = 26, Height = 26, Margin = new Thickness(2), CornerRadius = new CornerRadius(6),
-                Background = new SolidColorBrush(Color.FromUInt32(c)), BorderThickness = new Thickness(1),
-                BorderBrush = new SolidColorBrush(Color.Parse("#DDDDDA")), Padding = new Thickness(0),
-            };
-            uint captured = c;
-            cell.Click += (_, _) => { pick(captured); btn.Flyout?.Hide(); };
-            grid.Children.Add(cell);
-        }
-        btn.Flyout = new Flyout { Content = grid, Placement = PlacementMode.Bottom };
+                pick(c);
+                swatch.Background = new SolidColorBrush(Color.FromUInt32(c));
+            });
+        };
+        btn.Flyout = flyout;
         return btn;
     }
 
