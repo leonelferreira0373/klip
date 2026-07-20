@@ -80,6 +80,9 @@ public partial class MainWindow : Window
             CtxStack.Children.Add(Stepper("Opacidade", () => l.Opacity?.Eval(_previewT) ?? 1.0,
                 v => SafeCtx(() => ApiSetProp(id, "opacity", v.ToString("0.##", CultureInfo.InvariantCulture))), 0.1, 0, 1));
 
+            // ---- aponta-e-instrui + sugestões inteligentes ----
+            AddSuggestions(l);
+
             // ---- ações rápidas ----
             CtxStack.Children.Add(Sep());
             CtxStack.Children.Add(IconBtn("⧉", "Duplicar", () => OnDuplicate(null, new RoutedEventArgs())));
