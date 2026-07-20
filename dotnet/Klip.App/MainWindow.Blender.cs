@@ -31,17 +31,49 @@ public partial class MainWindow : Window
         UiChat("·", $"Blender {BlenderBridge.Version} a renderizar… (CPU pode demorar)");
 
         var sw = Stopwatch.StartNew();
+
+        // PROGRESSO AO VIVO: o Cycles imprime "Sample 12/96" no stdout. Sem isto o utilizador
+        // fica minutos a olhar para nada, sem saber se está a trabalhar ou pendurado.
+        int lastPct = -1;
+        void OnLine(string line)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(line, @"Sample (\d+)/(\d+)");
+            if (!m.Success) return;
+            if (!int.TryParse(m.Groups[1].Value, out int cur) || !int.TryParse(m.Groups[2].Value, out int tot) || tot <= 0) return;
+            int pct = (int)(100.0 * cur / tot);
+            if (pct / 10 == lastPct / 10) return;      // só de 10 em 10% — senão inunda o chat
+            lastPct = pct;
+            var rem = System.Text.RegularExpressions.Regex.Match(line, @"Remaining:([\d:.]+)");
+            string tail = rem.Success ? $" · faltam {rem.Groups[1].Value}" : "";
+            UiChat("·", $"Blender a renderizar… {pct}%{tail}");
+        }
+
         var outp = BlenderBridge.RenderStill(script, path,
-            null, TimeSpan.FromSeconds(Math.Clamp(timeoutSec ?? 900, 5, 7200)));
+            null, TimeSpan.FromSeconds(Math.Clamp(timeoutSec ?? 900, 5, 7200)), OnLine);
         sw.Stop();
 
         long bytes = new System.IO.FileInfo(outp).Length;
-        UiChat("·", $"Blender: {System.IO.Path.GetFileName(outp)} ({bytes / 1024} KB) em {sw.Elapsed.TotalSeconds:0.0}s");
+
+        // A IMAGEM ENTRA SOZINHA NA TELA. Corremos em background, por isso o documento
+        // só pode ser mexido na UI thread — daí o Invoke.
+        string? layerId = null;
+        try
+        {
+            layerId = Avalonia.Threading.Dispatcher.UIThread.Invoke(() => ApiInsertImage(outp));
+        }
+        catch (Exception ex)
+        {
+            UiChat("·", "render pronto, mas não entrou na tela: " + ex.Message);
+        }
+
+        UiChat("·", $"Blender: {System.IO.Path.GetFileName(outp)} ({bytes / 1024} KB) em {sw.Elapsed.TotalSeconds:0.0}s"
+                    + (layerId is null ? "" : " → na tela"));
         return new
         {
             ok = true,
             _image = outp,               // a IA recebe a imagem e pode criticá-la
             path = outp,
+            id = layerId,                // camada criada na tela (null se falhou a inserção)
             bytes,
             seconds = Math.Round(sw.Elapsed.TotalSeconds, 2),
             blender = BlenderBridge.Version,

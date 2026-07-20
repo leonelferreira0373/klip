@@ -152,7 +152,8 @@ public static class BlenderBridge
     /// O script vai para um .py temporário — o Blender não aceita código por stdin de forma fiável.
     /// `args` chegam ao script depois de `--` (leem-se com sys.argv[sys.argv.index("--")+1:]).
     /// </summary>
-    public static BlenderResult RunScript(string pythonCode, string[]? args = null, TimeSpan? timeout = null)
+    public static BlenderResult RunScript(string pythonCode, string[]? args = null, TimeSpan? timeout = null,
+                                          Action<string>? onLine = null)
     {
         if (string.IsNullOrWhiteSpace(pythonCode)) throw new ArgumentException("script vazio", nameof(pythonCode));
         var exe = Executable ?? throw new InvalidOperationException(
@@ -167,7 +168,7 @@ public static class BlenderBridge
         var argv = new List<string> { "-b", "--factory-startup", "-P", script };
         if (args is { Length: > 0 }) { argv.Add("--"); argv.AddRange(args); }
 
-        try { return Run(exe, argv, timeout ?? TimeSpan.FromMinutes(30)); }
+        try { return Run(exe, argv, timeout ?? TimeSpan.FromMinutes(30), onLine); }
         finally { try { File.Delete(script); } catch { } }
     }
 
@@ -177,7 +178,8 @@ public static class BlenderBridge
     /// Sem `args`, o script recebe o destino como único argumento (o contrato mais simples possível:
     /// `out = sys.argv[sys.argv.index("--")+1:][0]` → `scene.render.filepath = out`).
     /// </summary>
-    public static string RenderStill(string pythonCode, string outPath, string[]? args = null, TimeSpan? timeout = null)
+    public static string RenderStill(string pythonCode, string outPath, string[]? args = null, TimeSpan? timeout = null,
+                                     Action<string>? onLine = null)
     {
         if (string.IsNullOrWhiteSpace(outPath)) throw new ArgumentException("caminho de saída vazio", nameof(outPath));
         outPath = Path.GetFullPath(outPath);
@@ -185,7 +187,7 @@ public static class BlenderBridge
         if (!string.IsNullOrEmpty(outDir)) Directory.CreateDirectory(outDir);
         try { if (File.Exists(outPath)) File.Delete(outPath); } catch { }
 
-        var r = RunScript(pythonCode, args is { Length: > 0 } ? args : new[] { outPath }, timeout);
+        var r = RunScript(pythonCode, args is { Length: > 0 } ? args : new[] { outPath }, timeout, onLine);
         if (!r.Ok)
             throw new InvalidOperationException($"Blender falhou (exit {r.ExitCode}):\n{r.ErrorTail()}");
         // MEDIDO: com -P, uma exceção no Python ainda sai com código 0. O exit code NÃO é prova de nada —
@@ -197,7 +199,7 @@ public static class BlenderBridge
     }
 
     /// <summary>Motor de processo partilhado. Lê stdout/stderr em paralelo — ler em série enche o pipe e tranca o Blender.</summary>
-    private static BlenderResult Run(string exe, IEnumerable<string> argv, TimeSpan timeout)
+    private static BlenderResult Run(string exe, IEnumerable<string> argv, TimeSpan timeout, Action<string>? onLine = null)
     {
         var psi = new ProcessStartInfo(exe)
         {
@@ -215,7 +217,13 @@ public static class BlenderBridge
         var so = new StringBuilder(); var se = new StringBuilder();
         using var doneOut = new ManualResetEventSlim(false);
         using var doneErr = new ManualResetEventSlim(false);
-        proc.OutputDataReceived += (_, e) => { if (e.Data is null) doneOut.Set(); else lock (so) so.AppendLine(e.Data); };
+        proc.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data is null) { doneOut.Set(); return; }
+            lock (so) so.AppendLine(e.Data);
+            // o Cycles cospe o progresso por aqui — é o que deixa a UI mostrar o render a andar
+            if (onLine is not null) { try { onLine(e.Data); } catch { } }
+        };
         proc.ErrorDataReceived += (_, e) => { if (e.Data is null) doneErr.Set(); else lock (se) se.AppendLine(e.Data); };
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
