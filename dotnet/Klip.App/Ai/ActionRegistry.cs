@@ -112,6 +112,15 @@ public sealed class ActionRegistry
             P(("path", "string", "caminho absoluto da imagem")), new[] { "path" },
             a => new { id = _w.ApiInsertImage(Str(a, "path") ?? "") ?? throw new InvalidOperationException("imagem ilegível") }),
 
+        ["mesh_op"] = new("EDITA A MALHA À MÃO: aplica uma operação de modelação nos PONTOS 3D indicados, no espaço de OBJETO da camada. O Blender encontra os elementos mais próximos desses pontos (não há índices — a exportação aplica modificadores e tritura a malha) e corre a operação a sério. pontos = JSON [[x,y,z],…]. Demora ~7s por operação. Usa mesh_ops para saber o que «valor» significa em cada uma.",
+            P(("id", "string", "camada com objeto 3D"), ("operacao", "string", "bisel|extrudir|inset|subdividir|suavizar|apagar|fundir|mover_x|mover_y|mover_z"),
+              ("pontos", "string", "JSON [[x,y,z],…] em espaço de objeto"), ("valor", "number", "intensidade (opcional)")),
+            new[] { "id", "operacao", "pontos" },
+            a => _w.ApiMeshOp(Str(a, "id") ?? "", Str(a, "operacao") ?? "", Str(a, "pontos") ?? "[]", Num(a, "valor"))),
+
+        ["mesh_ops"] = new("Lista as operações de malha disponíveis e o que o parâmetro «valor» significa em cada uma.",
+            P(), new string[0], _ => _w.ApiMeshOps()),
+
         ["inspect_mesh"] = new("MEDE a topologia da malha de uma camada 3D e devolve números: faces, % de quads, triângulos, ngons, pólos de valência 6+, vértices duplicados, faces de área nula, níveis de Subsurf e se está shade smooth. Usa SEMPRE depois de modelar: limpo = ≥90% quads, 0 ngons, 0 pólos 6+, 0 duplicados. Se vier «de refazer», corrige com blender_edit antes de entregar.",
             P(("id", "string", "camada do objeto 3D")), new[] { "id" },
             a => _w.ApiInspectMesh(Str(a, "id") ?? "")),

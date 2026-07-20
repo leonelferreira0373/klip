@@ -28,10 +28,32 @@ public static class GltfMesh
     /// <param name="EmisR">cor emissiva já multiplicada pela força (KHR_materials_emissive_strength).</param>
     /// <param name="Alpha">alfa do baseColorFactor; &lt; 1 = material translúcido.</param>
     /// <param name="Blend">alphaMode BLEND — o material pede mistura, não é só uma cor com alfa.</param>
+    /// <param name="Centro">centro da caixa ORIGINAL, antes de normalizar.</param>
+    /// <param name="Escala">factor aplicado (1/maior dimensão).</param>
     public sealed record Part(float[] Data, int Count, Pbr Material, string? BaseTex,
                               string? NormalTex = null, string? MrTex = null, string? EmisTex = null,
                               float EmisR = 0, float EmisG = 0, float EmisB = 0,
-                              float Alpha = 1f, bool Blend = false);
+                              float Alpha = 1f, bool Blend = false,
+                              Vector3 Centro = default, float Escala = 1f)
+    {
+        /// <summary>
+        /// Desfaz a normalização: ponto do espaço-objeto do KLIP → coordenadas do ficheiro glTF.
+        /// SEM ISTO NÃO HÁ EDIÇÃO DE MALHA. O leitor encolhe tudo para caber em 1 unidade e, até
+        /// aqui, deitava fora o centro e o factor — o que tornava impossível dizer ao Blender
+        /// QUAL vértice o utilizador tocou, porque as coordenadas não correspondiam a nada.
+        /// </summary>
+        public Vector3 ParaGltf(Vector3 pKlip)
+            => new(pKlip.X / Escala + Centro.X, pKlip.Y / Escala + Centro.Y, pKlip.Z / Escala + Centro.Z);
+
+        /// <summary>
+        /// glTF → Blender. O exportador corre com export_yup=True, portanto o eixo vertical trocou:
+        /// desfazer isso é obrigatório, senão a peça é editada deitada.
+        /// </summary>
+        public static Vector3 GltfParaBlender(Vector3 g) => new(g.X, -g.Z, g.Y);
+
+        /// <summary>Atalho: ponto tocado na tela → coordenadas do .blend.</summary>
+        public Vector3 ParaBlender(Vector3 pKlip) => GltfParaBlender(ParaGltf(pKlip));
+    }
 
     private static readonly Dictionary<string, (float[] data, int count, Pbr pbr)> _cache =
         new(StringComparer.OrdinalIgnoreCase);
@@ -43,11 +65,16 @@ public static class GltfMesh
     /// A normalização é feita com a caixa COMUM a todas as partes — normalizar cada uma à sua
     /// escala faria a sola e o tecido do mesmo sapato saírem com tamanhos diferentes.
     /// </summary>
+    private static readonly object _cacheGate = new();
+
     public static IReadOnlyList<Part> LoadParts(string path)
     {
         path = Path.GetFullPath(path);
         var ck = "parts|" + path + "|" + (File.Exists(path) ? File.GetLastWriteTimeUtc(path).Ticks : 0);
-        if (_partsCache.TryGetValue(ck, out var got)) return got;
+        // TRANCA: até ao modo malha só a thread "klip-3d" entrava aqui. Agora a thread da UI lê a
+        // malha a CADA movimento do rato para fazer o picking, e o worker da operação também —
+        // três threads num Dictionary simples é corrupção à espera de acontecer.
+        lock (_cacheGate) { if (_partsCache.TryGetValue(ck, out var got)) return got; }
 
         var bytes = File.ReadAllBytes(path);
         var (json, bin) = SplitGlb(bytes);
@@ -144,7 +171,7 @@ public static class GltfMesh
             for (int i = 0; i < arr.Length; i += 8)
             { arr[i] = (arr[i] - cx) * k; arr[i + 1] = (arr[i + 1] - cy) * k; arr[i + 2] = (arr[i + 2] - cz) * k; }
             var pbr = matIx >= 0 && matIx < materials.Count ? ReadPbr(materials[matIx]) : new Pbr(0xFFBDBDC6, 0f, 0.5f);
-            if (matIx < 0 || matIx >= materials.Count) { parts.Add(new Part(arr, arr.Length / 8, pbr, null)); continue; }
+            if (matIx < 0 || matIx >= materials.Count) { parts.Add(new Part(arr, arr.Length / 8, pbr, null, Centro: new Vector3(cx, cy, cz), Escala: k)); continue; }
 
             var mat = materials[matIx];
             var pmr = mat.TryGetProperty("pbrMetallicRoughness", out var pv) ? pv : default;
@@ -178,9 +205,10 @@ public static class GltfMesh
             bool blend = mat.TryGetProperty("alphaMode", out var am)
                          && (am.GetString() ?? "OPAQUE") is "BLEND" or "MASK";
 
-            parts.Add(new Part(arr, arr.Length / 8, pbr, baseTex, normTex, mrTex, emiTex, er, eg, eb, alpha, blend));
+            parts.Add(new Part(arr, arr.Length / 8, pbr, baseTex, normTex, mrTex, emiTex, er, eg, eb, alpha, blend,
+                               Centro: new Vector3(cx, cy, cz), Escala: k));
         }
-        _partsCache[ck] = parts;
+        lock (_cacheGate) _partsCache[ck] = parts;
         return parts;
     }
 

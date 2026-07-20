@@ -107,6 +107,48 @@ public static class Hybrid3D
         }
     }
 
+    /// <summary>
+    /// As MESMAS matrizes que o render usa, expostas para quem precisa de projectar ou de
+    /// desprojectar (o modo malha, o gizmo). Ficarem aqui e não duplicadas é o que impede o
+    /// picking de apontar para um sítio e a peça ser desenhada noutro.
+    /// </summary>
+    public static (float[] model, float[] view, float[] proj, float[] mvp, Vector3 eye)
+        BuildMatrices(Comp comp, Layer layer, double t)
+    {
+        var cam = comp.Camera;
+        var eye = new Vector3(
+            (float)(cam?.X?.Eval(t) ?? 0), (float)(cam?.Y?.Eval(t) ?? 0), (float)(cam?.Z?.Eval(t) ?? 5.2));
+        var target = new Vector3(
+            (float)(cam?.Tx?.Eval(t) ?? 0), (float)(cam?.Ty?.Eval(t) ?? 0), (float)(cam?.Tz?.Eval(t) ?? 0));
+        float fov = (float)((cam?.Fov?.Eval(t) ?? 34.0) * Math.PI / 180.0);
+        float[] view = Mat4.LookAt(eye, target, Vector3.UnitY);
+        float[] proj = Mat4.Perspective(fov, (float)comp.Width / comp.Height, 0.1f, 100f);
+
+        const double Deg = Math.PI / 180.0;
+        float rotY = (float)(((layer.RotationY?.Eval(t) ?? layer.Rotation?.Eval(t)) ?? 0) * Deg);
+        float rotX = (float)((layer.RotationX?.Eval(t) ?? 0) * Deg);
+        float rotZ = (float)((layer.RotationZ?.Eval(t) ?? 0) * Deg);
+        float s = (float)(layer.Scale?.Eval(t) ?? 1.0);
+        float px = (float)((layer.PosX?.Eval(t) ?? 0) * PxToWorld);
+        float py = (float)(-(layer.PosY?.Eval(t) ?? 0) * PxToWorld);
+        float pz = (float)((layer.PosZ?.Eval(t) ?? 0) * PxToWorld);
+        var rot = Mat4.Multiply(Mat4.RotationZ(rotZ), Mat4.Multiply(Mat4.RotationY(rotY), Mat4.RotationX(rotX)));
+        float[] model = Mat4.Multiply(Mat4.Translation(px, py, pz), Mat4.Multiply(rot, Mat4.Scale(s)));
+        float[] mvp = Mat4.Multiply(proj, Mat4.Multiply(view, model));
+        return (model, view, proj, mvp, eye);
+    }
+
+    /// <summary>Vértices em espaço de OBJETO, para o picking. Mesma cache do compositor.</summary>
+    public static IReadOnlyList<GltfMesh.Part>? PartsOf(Layer layer)
+    {
+        var spec = layer.ThreeD;
+        if (spec?.MeshPath is not { Length: > 0 } p || !System.IO.File.Exists(p)) return null;
+        var ext = System.IO.Path.GetExtension(p).ToLowerInvariant();
+        if (ext is ".glb" or ".gltf") return GltfMesh.LoadParts(p);
+        var o = ObjMesh.Load(p);
+        return new[] { new GltfMesh.Part(o.data, o.count, new GltfMesh.Pbr(0xFFBDBDC6, 0f, 0.5f), null) };
+    }
+
     private static SKImage? RenderCore(Comp comp, Layer layer, double t, float outScale)
     {
         if (layer.ThreeD is not { } spec) return null;
@@ -160,31 +202,8 @@ public static class Hybrid3D
             _meshCache[layer.Name] = m;
         }
 
-        // câmara animável (defaults AE-like)
-        var cam = comp.Camera;
-        var eye = new Vector3(
-            (float)(cam?.X?.Eval(t) ?? 0), (float)(cam?.Y?.Eval(t) ?? 0), (float)(cam?.Z?.Eval(t) ?? 5.2));
-        var target = new Vector3(
-            (float)(cam?.Tx?.Eval(t) ?? 0), (float)(cam?.Ty?.Eval(t) ?? 0), (float)(cam?.Tz?.Eval(t) ?? 0));
-        float fov = (float)((cam?.Fov?.Eval(t) ?? 34.0) * Math.PI / 180.0);
-        float[] view = Mat4.LookAt(eye, target, Vector3.UnitY);
-        float[] proj = Mat4.Perspective(fov, (float)comp.Width / comp.Height, 0.1f, 100f);
-
-        // modelo: escala da camada → rotação Y (track Rotation) → posição (px→mundo, Y invertido)
-        const double Deg = Math.PI / 180.0;
-        // YAW: RotationY manda, com o Rotation 2D como reserva. Antes lia-se SÓ o Rotation — e como
-        // o anel verde do gizmo e o slider "Rot Y" escrevem em RotationY, rodar em Y não fazia
-        // absolutamente nada num objeto 3D. Os anéis X e Z funcionavam, o do meio não.
-        float rotY = (float)(((layer.RotationY?.Eval(t) ?? layer.Rotation?.Eval(t)) ?? 0) * Deg);
-        float rotX = (float)((layer.RotationX?.Eval(t) ?? 0) * Deg);  // pitch (inclinar)
-        float rotZ = (float)((layer.RotationZ?.Eval(t) ?? 0) * Deg);  // roll (leque)
-        float s = (float)(layer.Scale?.Eval(t) ?? 1.0);
-        float px = (float)((layer.PosX?.Eval(t) ?? 0) * PxToWorld);
-        float py = (float)(-(layer.PosY?.Eval(t) ?? 0) * PxToWorld);
-        float pz = (float)((layer.PosZ?.Eval(t) ?? 0) * PxToWorld);
-        var rot = Mat4.Multiply(Mat4.RotationZ(rotZ), Mat4.Multiply(Mat4.RotationY(rotY), Mat4.RotationX(rotX)));
-        float[] model = Mat4.Multiply(Mat4.Translation(px, py, pz), Mat4.Multiply(rot, Mat4.Scale(s)));
-        float[] mvp = Mat4.Multiply(proj, Mat4.Multiply(view, model));
+        // as matrizes vêm do helper partilhado — duas cópias divergiriam à primeira alteração
+        var (model, view, proj, mvp, eye) = BuildMatrices(comp, layer, t);
 
         var light = Vector3.Normalize(new Vector3(-0.45f, -0.5f, -0.74f));
         uint f = layer.FillArgb;
