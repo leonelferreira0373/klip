@@ -120,15 +120,27 @@ public static class Hybrid3D
 
         // mesh (cache por camada: shape+spec)
         string d = layer.Shape.Keys.Count > 0 ? layer.Shape.Keys[0].PathD : "";
-        string key = $"{d.GetHashCode()}|{spec.Depth}|{spec.Bevel}";
+        bool useMesh = spec.MeshPath is { Length: > 0 } && System.IO.File.Exists(spec.MeshPath);
+        string key = useMesh
+            ? "obj|" + spec.MeshPath + "|" + System.IO.File.GetLastWriteTimeUtc(spec.MeshPath!).Ticks
+            : $"{d.GetHashCode()}|{spec.Depth}|{spec.Bevel}";
         if (!_meshCache.TryGetValue(layer.Name, out var m) || m.key != key)
         {
-            using var path = SKPath.ParseSvgPathData(d);
-            if (path is null || path.IsEmpty) return null;
-            var b = path.Bounds;
-            float scale = PxToWorld;                    // px do canvas → unidades de mundo
-            var data = Extruder.Build(path, scale, (float)spec.Depth, (float)spec.Bevel, out int count);
-            m = (key, data, count);
+            if (useMesh)
+            {
+                // OBJETO REAL importado — nada de extrusão. A malha já vem normalizada p/ 1 unidade.
+                var (data0, count0) = ObjMesh.Load(spec.MeshPath!);
+                if (count0 == 0) return null;
+                m = (key, data0, count0);
+            }
+            else
+            {
+                using var path = SKPath.ParseSvgPathData(d);
+                if (path is null || path.IsEmpty) return null;
+                float scale = PxToWorld;                    // px do canvas → unidades de mundo
+                var data = Extruder.Build(path, scale, (float)spec.Depth, (float)spec.Bevel, out int count);
+                m = (key, data, count);
+            }
             _meshCache[layer.Name] = m;
         }
         _pass.SetMesh(m.data, m.count);

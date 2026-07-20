@@ -14,6 +14,70 @@ namespace Klip.App;
 public partial class MainWindow : Window
 {
     /// <summary>
+    /// blender_object: o Blender MODELA e o KLIP fica com a MALHA — não com uma fotografia dela.
+    /// A camada resultante é um objeto 3D a sério na cena: rodas, iluminas, animas e keyframas
+    /// com o mesmo motor PBR/IBL das outras camadas. É a diferença entre ter o render e ter a peça.
+    /// </summary>
+    public object ApiBlenderObject(string script, string? name, double? timeoutSec)
+    {
+        if (string.IsNullOrWhiteSpace(script)) throw new InvalidOperationException("script vazio");
+        if (!BlenderBridge.IsAvailable)
+            throw new InvalidOperationException("Blender não encontrado. Define KLIP_BLENDER com o caminho do blender.exe.");
+
+        var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "klip_meshes");
+        System.IO.Directory.CreateDirectory(dir);
+        var obj = System.IO.Path.Combine(dir, "klip_" + Guid.NewGuid().ToString("N")[..10] + ".obj");
+
+        // O script do utilizador só CONSTRÓI. A exportação é nossa — assim a IA não precisa de
+        // saber o nome do operador (que muda entre versões do Blender) e nunca se esquece dela.
+        // apply_modifiers=True: o ARRAY/SUBSURF/BEVEL vêm cozidos, senão chegava cá a malha-base nua.
+        var full = script + @"
+
+# ---- KLIP: exportar a malha para o editor ----
+import bpy as _bpy, sys as _sys
+_out = _sys.argv[_sys.argv.index('--') + 1:][0]
+try:
+    _bpy.ops.object.select_all(action='SELECT')
+except Exception:
+    pass
+_bpy.ops.wm.obj_export(filepath=_out, export_triangulated_mesh=True,
+                       export_materials=False, apply_modifiers=True)
+print('KLIP OBJ ->', _out)
+";
+        UiChat("·", $"Blender {BlenderBridge.Version} a modelar…");
+        var sw = Stopwatch.StartNew();
+        var r = BlenderBridge.RunScript(full, new[] { obj },
+            TimeSpan.FromSeconds(Math.Clamp(timeoutSec ?? 600, 5, 7200)),
+            line => { if (line.Contains("KLIP OBJ")) UiChat("·", "malha exportada"); });
+        sw.Stop();
+
+        if (!System.IO.File.Exists(obj) || new System.IO.FileInfo(obj).Length == 0)
+            throw new InvalidOperationException("o Blender não exportou malha nenhuma.\n" + r.ErrorTail(600));
+
+        var id = Avalonia.Threading.Dispatcher.UIThread.Invoke(() => AddMeshLayer(obj, name));
+        long kb = new System.IO.FileInfo(obj).Length / 1024;
+        UiChat("·", $"objeto 3D na cena: {id} ({kb} KB) em {sw.Elapsed.TotalSeconds:0.0}s");
+        return new { ok = true, id, mesh = obj, kb, seconds = Math.Round(sw.Elapsed.TotalSeconds, 2) };
+    }
+
+    /// <summary>Cria a camada que segura a malha. O Shape fica como caixa de seleção no canvas 2D.</summary>
+    private string AddMeshLayer(string objPath, string? name)
+    {
+        string id = (string.IsNullOrWhiteSpace(name) ? "objeto" : name!.Trim()) + "-" + _nameSeq++;
+        Mutate(() =>
+        {
+            _layers.Add(new Klip.Model.Layer(
+                id,
+                Klip.Model.MorphTrack.Static(Klip.Engine.Shapes.Rect(220, 220)),
+                0xFFBDBDC6,
+                Scale: Klip.Model.Track.Const(1.0),
+                ThreeD: new Klip.Model.Extrude3D(Rough: 0.35, Metal: 0.0, MeshPath: objPath)));
+            _selected = _layers.Count - 1;
+        });
+        return id;
+    }
+
+    /// <summary>
     /// blender_render: script Python → PNG. Corre em background (Background: true no bus) porque
     /// um render de Cycles em CPU leva minutos e travaria a UI thread inteira.
     /// Devolve "_image" para a IA VER o resultado sem ter de o inserir na tela primeiro.

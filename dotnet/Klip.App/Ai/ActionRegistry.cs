@@ -263,6 +263,12 @@ public sealed class ActionRegistry
             new[] { "id", "depth" },
             a => _w.ApiSet3D(Str(a, "id") ?? "", Num(a, "depth") ?? 0.5, Num(a, "bevel") ?? 0.07)),
 
+        ["blender_object"] = new("BLENDER → OBJETO 3D REAL na cena do KLIP (não uma imagem!). O teu script Python só MODELA (nada de render, nada de câmara/luzes); o KLIP exporta a malha e mete-a como camada 3D rodável/animável, com o PBR+IBL dele. Usa modificadores à vontade (ARRAY/SUBSURF/BEVEL/SOLIDIFY) — vêm aplicados. Usa isto quando o utilizador quiser O OBJETO; usa blender_render quando quiser só a fotografia fotorreal.",
+            P(("script", "string", "Python (bpy) que constrói a geometria"), ("name", "string", "nome da camada"),
+              ("timeout", "number", "segundos, default 600")),
+            new[] { "script" },
+            a => _w.ApiBlenderObject(Str(a, "script") ?? "", Str(a, "name"), Num(a, "timeout"))),
+
         ["set_material"] = new("Material PBR da camada 3D. rough 0.04(espelho)→1(mate); metal 0(plástico/vidro)→1(metal). Cromado=rough .05/metal 1 · Ouro=.32/1 · Plástico=.22/0 · Mate=.75/0.",
             P(("id", "string", ""), ("rough", "number", "0.04–1"), ("metal", "number", "0–1")),
             new[] { "id" },

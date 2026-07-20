@@ -291,7 +291,11 @@ public sealed record Layer(
 public sealed record Extrude3D(double Depth = 0.5, double Bevel = 0.07,
                                double Rough = 0.25, double Metal = 0.85,
                                string? FrontTex = null, string? BackTex = null,
-                               uint EdgeArgb = 0xFFEDEDED);
+                               uint EdgeArgb = 0xFFEDEDED,
+                               // MALHA REAL: se definido, a camada deixa de ser extrusão de um path 2D
+                               // e passa a ser um OBJETO 3D importado (.obj) — rodável e animável como
+                               // qualquer outra camada. É o que traz o Blender para dentro da cena.
+                               string? MeshPath = null);
 
 /// <summary>Câmara 3D REAL e animável do comp — posição, alvo e FOV são Tracks keyframáveis.
 /// Defaults: eye (0,0,5.2), target (0,0,0), fov 34°.</summary>
