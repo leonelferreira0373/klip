@@ -2289,6 +2289,10 @@ public partial class MainWindow : Window
 
         var c = ToCanvas(ctrl);
 
+        // GIZMO 3D: os anéis ganham ao resize e à selecção — senão era impossível agarrar um anel
+        // que passe por cima de outra forma.
+        if (GizmoPress(ctrl)) { _drag = Drag.None; return; }
+
         if (_selected >= 0 && EngineExport.LayerBounds(_layers[_selected], W, H) is { } r)
         {
             var hp = FromCanvas(r.x + r.w, r.y + r.h);
@@ -2328,6 +2332,7 @@ public partial class MainWindow : Window
             else UpdatePenPreview(SnapPoint(cur));
             return;
         }
+        if (GizmoMove(e.GetPosition(CanvasHost))) return;   // a rodar num anel do gizmo
         if (_drag == Drag.None)
         {
             var sp = e.GetPosition(CanvasHost);
@@ -2368,6 +2373,7 @@ public partial class MainWindow : Window
 
     private void OnReleased(object? sender, PointerReleasedEventArgs e)
     {
+        GizmoRelease();     // largou o anel → um único ponto de undo
         if (_panning)
         {
             _panning = false;
@@ -2472,6 +2478,7 @@ public partial class MainWindow : Window
         SelBox.IsVisible = true;
         Avalonia.Controls.Canvas.SetLeft(Handle, br.X - 5.5); Avalonia.Controls.Canvas.SetTop(Handle, br.Y - 5.5);
         Handle.IsVisible = true;
+        DrawGizmo();        // objeto 3D selecionado → anéis de rotação por cima dele
     }
 
     private void UpdateInspector()

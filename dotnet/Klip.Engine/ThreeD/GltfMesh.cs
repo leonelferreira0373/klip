@@ -267,7 +267,10 @@ public static class GltfMesh
 
     private static Pbr ReadPbr(JsonElement mat)
     {
-        uint argb = 0xFFBDBDC6; float metal = 0f, rough = 0.4f;
+        // ARMADILHA DO glTF: os valores por omissão da spec são metallic=1 e roughness=1, e os
+        // exportadores OMITEM o campo quando ele é igual ao default. Começar a zero fazia com que
+        // todo o metal chegasse cá como plástico — foi exatamente o que aconteceu ao anel dourado.
+        uint argb = 0xFFBDBDC6; float metal = 1f, rough = 1f;
         if (mat.TryGetProperty("pbrMetallicRoughness", out var p))
         {
             if (p.TryGetProperty("baseColorFactor", out var bc) && bc.ValueKind == JsonValueKind.Array)
