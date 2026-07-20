@@ -31,3 +31,6 @@ pip-*.log
 
 # harness de render 3D (ferramenta de dev, nao entra em release)
 dotnet/Klip.PbrTest/
+
+# worktrees temporarias dos agentes — nunca entram no repo
+.claude/worktrees/
