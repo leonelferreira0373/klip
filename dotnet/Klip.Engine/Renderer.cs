@@ -253,12 +253,12 @@ public sealed class Renderer
             {
                 using var lp = new SKPaint { Color = new SKColor(255, 255, 255, (byte)(255 * op)) };
                 canvas.SaveLayer(lp);
-                Klip.Engine.Rive.RiveClip.Draw(canvas, dst, rivePath, layer.RiveAnim, t);
+                Klip.Engine.Rive.RiveClip.Draw(canvas, dst, rivePath, layer.RiveAnim, t, layer.RiveMachine, layer.RiveInputs);
                 canvas.Restore();
             }
             else
             {
-                Klip.Engine.Rive.RiveClip.Draw(canvas, dst, rivePath, layer.RiveAnim, t);
+                Klip.Engine.Rive.RiveClip.Draw(canvas, dst, rivePath, layer.RiveAnim, t, layer.RiveMachine, layer.RiveInputs);
             }
             filter?.Dispose();
             canvas.RestoreToCount(save);

@@ -279,7 +279,10 @@ public sealed record Layer(
     // ---- Cor profunda (aditivo, SEMPRE no fim → .klip antigos abrem na mesma; null = comportamento de antes) ----
     GradientSpec? FillGradient = null,   // gradiente MULTI-STOP; quando != null MANDA sobre o par FillArgb/FillArgb2
     SpotRef? FillSpot = null,            // etiqueta spot (PANTONE/HKS/…) da cor de preenchimento — nome + chapa CMYK
-    SpotRef? StrokeSpot = null)          // idem, para o contorno
+    SpotRef? StrokeSpot = null,          // idem, para o contorno
+    // ---- Rive conduzido por máquina de estados (aditivo, no fim; null = animação linear como antes) ----
+    string? RiveMachine = null,                          // qual a máquina activa
+    IReadOnlyDictionary<string, double>? RiveInputs = null)   // valores dos inputs dela
 {
     /// <summary>Chave estável p/ endereçamento (aponta-e-instrui, IA): Id se existir, senão Name.</summary>
     [System.Text.Json.Serialization.JsonIgnore] public string Key => Id ?? Name;

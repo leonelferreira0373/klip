@@ -132,11 +132,16 @@ public partial class MainWindow : Window
         botoes.Children.Add(original);
         _rvCorpo.Children.Add(botoes);
 
-        // ---- máquinas de estados: lidas do ficheiro por RiveStateMachine (só leitura por agora) ----
+        // ---- máquinas de estados: escolher qual conduz o desenho, e mexer nos inputs dela ----
         _rvCorpo.Children.Add(Head3D("MÁQUINA DE ESTADOS"));
+        _rvMaqBotoes = new StackPanel { Spacing = 2 };
+        _rvCorpo.Children.Add(_rvMaqBotoes);
+        _rvInputs = new StackPanel { Spacing = 2, Margin = new Thickness(0, 3, 0, 0) };
+        _rvCorpo.Children.Add(_rvInputs);
         _rvMaqTexto = new TextBlock
         {
             Text = "—", FontSize = 10, Foreground = BrHead, TextWrapping = TextWrapping.Wrap, LineHeight = 13,
+            Margin = new Thickness(0, 3, 0, 0),
         };
         _rvCorpo.Children.Add(_rvMaqTexto);
 
@@ -435,6 +440,138 @@ public partial class MainWindow : Window
     /// sempre null, o que fazia a secção dizer "este ficheiro não expõe máquinas" mesmo em
     /// ficheiros cheios delas.
     /// </summary>
+    private StackPanel? _rvMaqBotoes, _rvInputs;
+
+    /// <summary>
+    /// Escolher qual máquina conduz o desenho. Com uma escolhida, o .riv deixa de tocar uma
+    /// animação fixa e passa a ser a máquina a decidir — que é a razão de existir do Rive.
+    /// </summary>
+    private void RvEscolherMaquina(string? nome)
+    {
+        int ix = _selected;
+        if (ix < 0 || ix >= _layers.Count || _layers[ix].RivePath is null) return;
+        RvSafe(() =>
+        {
+            var l = _layers[ix];
+            // trocar de máquina invalida os inputs da anterior — nomes diferentes, valores sem sentido
+            Mutate(() => _layers[ix] = l with { RiveMachine = nome, RiveInputs = null });
+            if (Inspector is not null)
+                Inspector.Text = nome is null ? "Rive: animação linear." : $"Rive: máquina “{nome}”.";
+        });
+        SyncRivePanel();
+    }
+
+    /// <summary>Mexe num input da máquina. É isto que faz a animação REAGIR.</summary>
+    private void RvInput(string nome, double valor)
+    {
+        int ix = _selected;
+        if (ix < 0 || ix >= _layers.Count) return;
+        RvSafe(() =>
+        {
+            var l = _layers[ix];
+            var d = l.RiveInputs is null
+                ? new Dictionary<string, double>()
+                : new Dictionary<string, double>(l.RiveInputs);
+            d[nome] = valor;
+            Mutate(() => _layers[ix] = l with { RiveInputs = d });
+        });
+        SyncRivePanel();
+    }
+
+    /// <summary>Constrói os botões de escolha da máquina e os controlos dos inputs dela.</summary>
+    private void RvSyncMaquinas(string caminho)
+    {
+        if (_rvMaqBotoes is null || _rvInputs is null) return;
+        _rvMaqBotoes.Children.Clear();
+        _rvInputs.Children.Clear();
+
+        var maqs = RvMaquinas(caminho);
+        if (maqs.Count == 0) return;
+
+        var l = _selected >= 0 && _selected < _layers.Count ? _layers[_selected] : null;
+        string? activa = l?.RiveMachine;
+
+        var linha = new WrapPanel { Orientation = Orientation.Horizontal };
+        Button Chip(string texto, bool on, Action ac)
+        {
+            var b = new Button
+            {
+                Content = texto, FontSize = 9.5, Height = 20, Padding = new Thickness(6, 0),
+                CornerRadius = new CornerRadius(5), Margin = new Thickness(0, 0, 3, 3),
+                BorderThickness = new Thickness(0),
+                Background = PcChip, Foreground = on ? BrAccent : BrValue,
+                FontWeight = on ? FontWeight.Bold : FontWeight.Normal,
+            };
+            b.Click += (_, _) => ac();
+            return b;
+        }
+
+        linha.Children.Add(Chip("linha temporal", activa is null, () => RvEscolherMaquina(null)));
+        foreach (var m in maqs)
+        {
+            var nome = m.Nome;
+            linha.Children.Add(Chip(nome, string.Equals(activa, nome, StringComparison.OrdinalIgnoreCase),
+                                    () => RvEscolherMaquina(nome)));
+        }
+        _rvMaqBotoes.Children.Add(linha);
+
+        if (activa is null) return;
+        var maq = maqs.FirstOrDefault(m => string.Equals(m.Nome, activa, StringComparison.OrdinalIgnoreCase));
+        if (maq is null || maq.Inputs.Count == 0) return;
+
+        foreach (var inp in maq.Inputs)
+        {
+            double actual = l?.RiveInputs is not null && l.RiveInputs.TryGetValue(inp.Nome, out var v) ? v : inp.Valor;
+            var nome = inp.Nome;
+
+            if (inp.Tipo == "gatilho")
+            {
+                // Um gatilho não tem valor — dispara. Fica ligado enquanto estiver marcado, e a
+                // simulação determinística dispara-o no arranque; desmarcar volta atrás.
+                var b = new Button
+                {
+                    Content = (actual != 0 ? "▣ " : "▢ ") + nome, FontSize = 10, Height = 21,
+                    Padding = new Thickness(7, 0), CornerRadius = new CornerRadius(5),
+                    Background = PcChip, BorderThickness = new Thickness(0),
+                    Foreground = actual != 0 ? BrAccent : BrValue,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Left,
+                };
+                b.Click += (_, _) => RvInput(nome, actual != 0 ? 0 : 1);
+                _rvInputs.Children.Add(b);
+            }
+            else if (inp.Tipo == "booleano")
+            {
+                var b = new Button
+                {
+                    Content = (actual != 0 ? "☑ " : "☐ ") + nome, FontSize = 10, Height = 21,
+                    Padding = new Thickness(7, 0), CornerRadius = new CornerRadius(5),
+                    Background = PcChip, BorderThickness = new Thickness(0),
+                    Foreground = actual != 0 ? BrAccent : BrValue,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Left,
+                };
+                b.Click += (_, _) => RvInput(nome, actual != 0 ? 0 : 1);
+                _rvInputs.Children.Add(b);
+            }
+            else
+            {
+                var g = new Avalonia.Controls.Grid { ColumnDefinitions = new ColumnDefinitions("62,*,34"), Height = 22 };
+                var lb = new TextBlock { Text = nome, FontSize = 10, Foreground = BrLabel, VerticalAlignment = VerticalAlignment.Center };
+                Avalonia.Controls.Grid.SetColumn(lb, 0); g.Children.Add(lb);
+                var sl = new Slider { Minimum = 0, Maximum = 100, Value = Math.Clamp(actual, 0, 100), Height = 22, Padding = new Thickness(0) };
+                var val = new TextBlock { Text = actual.ToString("0.#"), FontSize = 10, Foreground = BrValue, VerticalAlignment = VerticalAlignment.Center };
+                // arrastar só actualiza o número; ao largar é que muda o documento — um só undo
+                sl.PropertyChanged += (_, ev) => { if (ev.Property == Slider.ValueProperty) val.Text = sl.Value.ToString("0.#"); };
+                sl.AddHandler(PointerReleasedEvent, (_, _) => RvInput(nome, sl.Value),
+                              Avalonia.Interactivity.RoutingStrategies.Tunnel | Avalonia.Interactivity.RoutingStrategies.Bubble);
+                Avalonia.Controls.Grid.SetColumn(sl, 1); g.Children.Add(sl);
+                Avalonia.Controls.Grid.SetColumn(val, 2); g.Children.Add(val);
+                _rvInputs.Children.Add(g);
+            }
+        }
+    }
+
     private string RvTextoMaquinas(string caminho)
     {
         var maqs = RvMaquinas(caminho);
@@ -534,6 +671,7 @@ public partial class MainWindow : Window
             Por("rive.box", nw > 0 ? l.RiveW / nw : 1.0, "0.00");
 
             // ---- máquinas de estados ----
+            RvSyncMaquinas(caminho);
             if (_rvMaqTexto is not null) _rvMaqTexto.Text = RvTextoMaquinas(caminho);
         }
         catch (Exception ex) { RvMsg("painel Rive: " + ex.Message); }
